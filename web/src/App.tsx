@@ -54,7 +54,7 @@ export function App() {
   }
 
   return (
-    <main>
+    <main className="dashboard">
       <header>
         <div>
           <p className="eyebrow">{dashboard?.date ?? 'Today'}</p>

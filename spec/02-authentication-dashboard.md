@@ -22,6 +22,7 @@ Let configured players and the owner sign in, remain signed in until logout, and
 - [x] **UI-002:** Build the responsive dashboard shell for phone and desktop.
 - [x] **UI-003:** Display Geopolitix and Krillion links.
 - [x] **UI-004:** Add logout and an owner entry point.
+- [x] **UI-005:** Apply the Altermind design system from `web/DESIGN.md`.
 - [x] **AUTH-007:** Test valid login, invalid login, logout, route protection, and Oslo date handling.
 
 ## Acceptance criteria
