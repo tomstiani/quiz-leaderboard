@@ -33,8 +33,8 @@ func run() error {
 		Addr:              cfg.Address,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      75 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 	log.Printf("listening on %s", cfg.Address)

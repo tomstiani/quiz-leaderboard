@@ -22,15 +22,19 @@
       "id": "geopolitix",
       "name": "Geopolitix",
       "url": "https://geopolitix.live/",
-      "maxScore": 0
+      "maxScore": 900
     },
     {
       "id": "krillion",
       "name": "Krillion",
       "url": "https://krillion.io/",
-      "maxScore": 700
+      "maxScore": 7000
     }
   ],
-  "vision": { "url": "", "model": "", "apiKey": "" },
+  "vision": {
+    "url": "http://127.0.0.1:18081/v1/chat/completions",
+    "model": "fake-vision-model",
+    "apiKey": "e2e-api-key"
+  },
   "ntfy": { "url": "", "topic": "", "token": "" }
 }

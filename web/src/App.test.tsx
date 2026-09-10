@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -10,12 +10,12 @@ const dashboard = {
   date: '2026-09-10',
   viewer: player,
   games: [
-    { id: 'geopolitix', name: 'Geopolitix', url: 'https://geopolitix.live/' },
-    { id: 'krillion', name: 'Krillion', url: 'https://krillion.io/' },
+    { id: 'geopolitix', name: 'Geopolitix', url: 'https://geopolitix.live/', maxScore: 900 },
+    { id: 'krillion', name: 'Krillion', url: 'https://krillion.io/', maxScore: 7000 },
   ],
   players: [
-    { id: 'alice', name: 'Alice', completed: 0, combinedScore: 0 },
-    { id: 'bob', name: 'Bob', completed: 0, combinedScore: 0 },
+    { id: 'alice', name: 'Alice', completed: 0, combinedScore: 0, scores: [] },
+    { id: 'bob', name: 'Bob', completed: 0, combinedScore: 0, scores: [] },
   ],
 }
 
@@ -44,10 +44,58 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(await screen.findByRole('heading', { name: 'Daily leaderboard' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Geopolitix/ }).getAttribute('href')).toBe('https://geopolitix.live/')
+    expect(screen.getAllByRole('link', { name: 'Play game →' })[0].getAttribute('href')).toBe('https://geopolitix.live/')
     expect(screen.getByText('Alice')).toBeTruthy()
     expect(screen.getByText('Bob')).toBeTruthy()
     expect(screen.getAllByText('0/2')).toHaveLength(2)
+  })
+
+  it('uploads, reviews, edits, and confirms a screenshot', async () => {
+    const confirmedDashboard = {
+      ...dashboard,
+      players: [
+        { ...dashboard.players[0], completed: 1, scores: [{ gameId: 'geopolitix', rawScore: 300, screenshotUrl: '/api/screenshots/draft-1' }] },
+        dashboard.players[1],
+      ],
+    }
+    let dashboardCalls = 0
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const path = input.toString()
+      if (path === '/api/session') return Response.json(player)
+      if (path === '/api/dashboard') return Response.json(dashboardCalls++ ? confirmedDashboard : dashboard)
+      if (path === '/api/games/geopolitix/draft') {
+        expect(init?.body).toBeInstanceOf(FormData)
+        return Response.json({ id: 'draft-1', score: 321 }, { status: 201 })
+      }
+      if (path === '/api/drafts/draft-1/confirm') {
+        expect(JSON.parse(init?.body as string)).toEqual({ score: 300 })
+        return Response.json({ id: 'draft-1', score: 300 })
+      }
+      throw new Error(`unexpected request: ${path}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    URL.createObjectURL = vi.fn(() => 'blob:preview')
+    URL.revokeObjectURL = vi.fn()
+    const user = userEvent.setup()
+    render(<App />)
+
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'score.png', { type: 'image/png' })
+    await user.upload((await screen.findAllByLabelText('Result screenshot'))[0], file)
+    fireEvent.submit(screen.getAllByRole('button', { name: 'Analyze screenshot' })[0].closest('form')!)
+    await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => input.toString() === '/api/games/geopolitix/draft')).toBe(true))
+
+    let scoreInput = await screen.findByLabelText('Total score') as HTMLInputElement
+    expect(scoreInput.value).toBe('321')
+    await user.click(screen.getByRole('button', { name: 'Choose another' }))
+    await user.upload(screen.getAllByLabelText('Result screenshot')[0], file)
+    fireEvent.submit(screen.getAllByRole('button', { name: 'Analyze screenshot' })[0].closest('form')!)
+    scoreInput = await screen.findByLabelText('Total score') as HTMLInputElement
+    await user.clear(scoreInput)
+    await user.type(scoreInput, '300')
+    await user.click(screen.getByRole('button', { name: 'Confirm score' }))
+
+    expect(await screen.findByText(/Submitted:/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'View screenshot' }).getAttribute('href')).toBe('/api/screenshots/draft-1')
   })
 
   it('shows an invalid-token error without leaving the login screen', async () => {

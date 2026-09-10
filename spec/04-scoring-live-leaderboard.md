@@ -31,7 +31,7 @@ Rank players by an equally weighted combined daily score and update open dashboa
 
 ## Blockers
 
-- The Geopolitix maximum score must be confirmed.
+None.
 
 ## Deferred
 

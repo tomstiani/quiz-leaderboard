@@ -87,17 +87,22 @@ p {
 
 .game {
   display: flex;
-  min-height: 8.5rem;
-  align-items: end;
+  min-height: 10rem;
+  flex-direction: column;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.5rem;
   padding: 1.5rem;
-  color: inherit;
   background: #001f1ebf;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
-  text-decoration: none;
   transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.game-title {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .game strong {
@@ -106,12 +111,8 @@ p {
   font-weight: 400;
 }
 
-.game span {
-  color: #ffffffbf;
-  font-size: 0.875rem;
-  letter-spacing: 0.025rem;
-}
-
+.game a, td a { color: var(--on-surface); text-underline-offset: 0.25rem; }
+.game-title a { color: #ffffffbf; font-size: 0.875rem; letter-spacing: 0.025rem; }
 .game:hover { background: var(--secondary); border-color: #ffffff70; }
 
 .table-wrap {
@@ -167,7 +168,7 @@ button:disabled { opacity: 0.55; cursor: wait; }
   place-items: center;
 }
 
-form {
+.login-form {
   width: min(36rem, 100%);
   padding: 3.5rem;
   background: #001f1ecc;
@@ -175,7 +176,7 @@ form {
   border-radius: 0.5rem;
 }
 
-form h1 { font-size: clamp(3.75rem, 10vw, 6.3125rem); }
+.login-form h1 { font-size: clamp(3.75rem, 10vw, 6.3125rem); }
 label {
   display: block;
   margin: 2.25rem 0 0.875rem;
@@ -199,7 +200,14 @@ input:focus, button:focus-visible, a:focus-visible {
   outline-offset: 3px;
 }
 
-form button { width: 100%; margin-top: 2.25rem; }
+.login-form button { width: 100%; margin-top: 2.25rem; }
+.submission { border-top: 1px solid var(--border); padding-top: 1rem; }
+.submission label { margin-top: 0; }
+.submission button { width: 100%; margin-top: 1rem; }
+.submission-actions { display: flex; gap: 0.75rem; }
+.submission small { display: block; margin-top: 0.75rem; color: #ffffff9e; }
+.submission img { display: block; width: 100%; max-height: 18rem; object-fit: contain; border-radius: 0.5rem; }
+.submission input[type="file"] { height: auto; border-radius: 0.5rem; }
 .error { color: var(--error); }
 
 @media (max-width: 40rem) {
@@ -209,7 +217,7 @@ form button { width: 100%; margin-top: 2.25rem; }
   header button { align-self: start; }
   h1 { font-size: clamp(3.25rem, 17vw, 5rem); }
   h2 { margin-top: 3.5rem; }
-  form { padding: 2.25rem 1.5rem; }
+  .login-form { padding: 2.25rem 1.5rem; }
   th, td { padding: 1rem; }
 }
 

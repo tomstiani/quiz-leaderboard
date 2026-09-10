@@ -18,16 +18,24 @@ type dashboardResponse struct {
 }
 
 type dashboardGame struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	URL  string `json:"url"`
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	URL      string  `json:"url"`
+	MaxScore float64 `json:"maxScore"`
+}
+
+type dashboardScore struct {
+	GameID        string `json:"gameId"`
+	RawScore      int    `json:"rawScore"`
+	ScreenshotURL string `json:"screenshotUrl"`
 }
 
 type dashboardPlayer struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Completed     int    `json:"completed"`
-	CombinedScore int    `json:"combinedScore"`
+	ID            string           `json:"id"`
+	Name          string           `json:"name"`
+	Completed     int              `json:"completed"`
+	CombinedScore int              `json:"combinedScore"`
+	Scores        []dashboardScore `json:"scores"`
 }
 
 func newHandler(cfg config, db *sql.DB, now func() time.Time) (http.Handler, error) {
@@ -38,6 +46,8 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time) (http.Handler, err
 	if now == nil {
 		now = time.Now
 	}
+	vision := newVisionClient(cfg.Vision)
+	day := func() string { return now().In(oslo).Format(time.DateOnly) }
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -74,14 +84,48 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time) (http.Handler, err
 		writeJSON(w, http.StatusOK, user)
 	}))
 	mux.HandleFunc("GET /api/dashboard", authenticated(cfg, func(w http.ResponseWriter, _ *http.Request, user principal) {
-		response := dashboardResponse{Date: now().In(oslo).Format(time.DateOnly), Viewer: user}
+		response := dashboardResponse{Date: day(), Viewer: user}
 		for _, game := range cfg.Games {
-			response.Games = append(response.Games, dashboardGame{ID: game.ID, Name: game.Name, URL: game.URL})
+			response.Games = append(response.Games, dashboardGame{ID: game.ID, Name: game.Name, URL: game.URL, MaxScore: game.MaxScore})
 		}
+		playerIndexes := map[string]int{}
 		for _, player := range cfg.Players {
-			response.Players = append(response.Players, dashboardPlayer{ID: player.ID, Name: player.Name})
+			playerIndexes[player.ID] = len(response.Players)
+			response.Players = append(response.Players, dashboardPlayer{ID: player.ID, Name: player.Name, Scores: []dashboardScore{}})
+		}
+		rows, err := db.Query(`SELECT id, player_id, game_id, raw_score FROM submissions
+			WHERE game_day = ? AND status = 'confirmed'`, day())
+		if err != nil {
+			http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id, playerID, gameID string
+			var rawScore int
+			if err := rows.Scan(&id, &playerID, &gameID, &rawScore); err != nil {
+				http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
+				return
+			}
+			if index, ok := playerIndexes[playerID]; ok {
+				response.Players[index].Scores = append(response.Players[index].Scores, dashboardScore{GameID: gameID, RawScore: rawScore, ScreenshotURL: "/api/screenshots/" + id})
+				response.Players[index].Completed++
+			}
+		}
+		if err := rows.Err(); err != nil {
+			http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
+			return
 		}
 		writeJSON(w, http.StatusOK, response)
+	}))
+	mux.HandleFunc("POST /api/games/{gameID}/draft", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+		createDraft(w, r, cfg, db, vision, user, day())
+	}))
+	mux.HandleFunc("POST /api/drafts/{id}/confirm", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+		confirmDraft(w, r, cfg, db, user, day())
+	}))
+	mux.HandleFunc("GET /api/screenshots/{id}", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+		serveScreenshot(w, r, cfg, db, user)
 	}))
 	mux.Handle("/api/", http.NotFoundHandler())
 	mux.Handle("/", spaHandler(cfg.WebDir))

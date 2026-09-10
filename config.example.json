@@ -17,19 +17,19 @@
       "id": "geopolitix",
       "name": "Geopolitix",
       "url": "https://geopolitix.live/",
-      "maxScore": 0
+      "maxScore": 900
     },
     {
       "id": "krillion",
       "name": "Krillion",
       "url": "https://krillion.io/",
-      "maxScore": 700
+      "maxScore": 7000
     }
   ],
   "vision": {
-    "url": "",
-    "model": "",
-    "apiKey": ""
+    "url": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "google/gemini-2.5-flash-lite",
+    "apiKey": "replace-openrouter-api-key"
   },
   "ntfy": {
     "url": "",

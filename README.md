@@ -55,7 +55,7 @@ docker compose up --build
 
 Open <http://localhost:8080> and verify <http://localhost:8080/api/health> returns `{"status":"ok"}`.
 
-Runtime configuration lives in the ignored `config.json`. Set `secureCookies` to `true` behind production HTTPS. SQLite and screenshots live in the ignored `data/` directory. Back up those two runtime paths outside version control.
+Runtime configuration lives in the ignored `config.json`. Add your OpenRouter key under `vision.apiKey`, and set `secureCookies` to `true` behind production HTTPS. SQLite and screenshots live in the ignored `data/` directory. Back up those two runtime paths outside version control.
 
 ## Project status
 

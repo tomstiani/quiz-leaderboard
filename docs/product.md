@@ -4,7 +4,7 @@
 
 The MVP product decisions are defined. Implementation is tracked in [`../spec/`](../spec/README.md).
 
-The Geopolitix maximum score and vision provider remain undecided.
+Screenshot analysis uses OpenRouter.
 
 ## Purpose
 
@@ -102,13 +102,13 @@ Each game opens on its external website:
 
 ### Krillion
 
-Krillion has a maximum score of 700 points. Its result is displayed as depth, where 700 points equals 7,000 metres.
+Krillion has a maximum displayed result of 7,000 metres. Store the displayed depth as its raw score.
 
 Game: [Krillion](https://krillion.io/)
 
 ### Geopolitix
 
-The maximum score is not confirmed. Its published rules mention both 900 base points and 1,125 points with all bonuses. Use a real completed-result screenshot to confirm which value appears and should be normalized.
+Geopolitix has a maximum daily score of 900 points.
 
 Game: [Geopolitix](https://geopolitix.live/)
 
@@ -137,7 +137,7 @@ For each vision request, require at least:
 - Valid-result decision
 - Rejection reason when invalid
 
-Compare current low-cost vision models against real screenshots before selecting a provider and model. A third-party vision API is acceptable. Players must be informed that uploaded screenshots are processed externally.
+Send screenshots to a configured vision model through OpenRouter. The initial model is `google/gemini-2.5-flash-lite`. Players must be informed that uploaded screenshots are processed externally.
 
 ## Scoring and ranking
 
@@ -154,7 +154,7 @@ Store both the raw and normalized scores. This preserves the submitted result an
 
 Players with equal combined scores share the same rank. Completion time does not break ties.
 
-Do not finalize Geopolitix normalization until its maximum score is confirmed.
+Geopolitix normalization uses 900 as its maximum score.
 
 ## Notifications
 
@@ -216,21 +216,10 @@ The Go service should serve the built frontend so deployment needs one applicati
 
 Provide these before their related implementation work begins:
 
-1. The exact Krillion and Geopolitix daily URLs
-2. Representative completed-result screenshots from both games
-3. Confirmation of the Geopolitix maximum score
-4. Connection details for the existing ntfy instance
-5. The intended public application domain
-6. The initial player names and token configuration
+1. Connection details for the existing ntfy instance
+2. The intended public application domain
+3. The initial player names and token configuration
 
-## Remaining evaluation
+## Vision model
 
-Test several current low-cost vision models with the representative screenshots. Compare:
-
-- Completed-result validation accuracy
-- Score extraction accuracy
-- Structured-output reliability
-- Latency
-- Cost
-
-Choose the cheapest model that reliably handles both games. Do not build provider abstraction beyond what is needed to call the selected model.
+Use OpenRouter's OpenAI-compatible chat completions API directly. Start with `google/gemini-2.5-flash-lite` and change the configured model only if real submissions prove unreliable. Do not build a provider abstraction.
