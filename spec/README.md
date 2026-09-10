@@ -19,7 +19,7 @@ The product requirements live in [`../docs/product.md`](../docs/product.md). Pro
 | 2 | [Authentication and dashboard](02-authentication-dashboard.md) | `complete` | 1 |
 | 3 | [Screenshot submissions](03-screenshot-submissions.md) | `complete` | 2 |
 | 4 | [Scoring and live leaderboard](04-scoring-live-leaderboard.md) | `complete` | 3 |
-| 5 | [Owner corrections and notifications](05-owner-notifications.md) | `not_started` | 4 |
+| 5 | [Owner corrections and notifications](05-owner-notifications.md) | `blocked` | 4 |
 | 6 | [Deployment and hardening](06-deployment-hardening.md) | `not_started` | 5 |
 
 ## Working rules

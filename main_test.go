@@ -27,7 +27,7 @@ func TestOpenDatabaseAppliesMigrations(t *testing.T) {
 	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 3 {
-		t.Fatalf("got %d migrations, want 3", count)
+	if count != 4 {
+		t.Fatalf("got %d migrations, want 4", count)
 	}
 }

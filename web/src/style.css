@@ -208,6 +208,20 @@ input:focus, button:focus-visible, a:focus-visible {
 .submission small { display: block; margin-top: 0.75rem; color: #ffffff9e; }
 .submission img { display: block; width: 100%; max-height: 18rem; object-fit: contain; border-radius: 0.5rem; }
 .submission input[type="file"] { height: auto; border-radius: 0.5rem; }
+.owner-list { display: grid; gap: 0.875rem; }
+.owner-submission {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(8rem, 0.35fr) minmax(14rem, 0.5fr);
+  align-items: end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+.owner-submission p { margin-bottom: 0; }
+.owner-submission label { margin: 0 0 0.875rem; }
+.owner-submission .submission-actions button { margin: 0; }
+.owner-submission a { color: var(--on-surface); }
 .error { color: var(--error); }
 
 @media (max-width: 40rem) {
@@ -218,6 +232,7 @@ input:focus, button:focus-visible, a:focus-visible {
   h1 { font-size: clamp(3.25rem, 17vw, 5rem); }
   h2 { margin-top: 3.5rem; }
   .login-form { padding: 2.25rem 1.5rem; }
+  .owner-submission { grid-template-columns: 1fr; }
   th, td { padding: 1rem; }
 }
 

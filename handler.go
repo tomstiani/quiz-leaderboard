@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -136,6 +137,9 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 	mux.HandleFunc("POST /api/drafts/{id}/confirm", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
 		if confirmDraft(w, r, cfg, db, user, day()) {
 			broker.publish()
+			if err := notifyCompletion(r.Context(), cfg, db, user.PlayerID, day()); err != nil {
+				log.Printf("send completion notification: %v", err)
+			}
 		}
 	}))
 	mux.HandleFunc("GET /api/events", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, _ principal) {
@@ -143,6 +147,19 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 	}))
 	mux.HandleFunc("GET /api/screenshots/{id}", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
 		serveScreenshot(w, r, cfg, db, user)
+	}))
+	mux.HandleFunc("GET /api/owner/submissions", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+		listOwnerSubmissions(w, r, cfg, db, user, day())
+	}))
+	mux.HandleFunc("POST /api/owner/submissions/{id}/score", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+		if correctOwnerScore(w, r, cfg, db, user, day()) {
+			broker.publish()
+		}
+	}))
+	mux.HandleFunc("DELETE /api/owner/submissions/{id}", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+		if reopenOwnerSubmission(w, r, cfg, db, user, day()) {
+			broker.publish()
+		}
 	}))
 	mux.Handle("/api/", http.NotFoundHandler())
 	mux.Handle("/", spaHandler(cfg.WebDir))

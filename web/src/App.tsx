@@ -20,6 +20,15 @@ type Game = {
   maxScore: number
 }
 
+type OwnerSubmission = {
+  id: string
+  playerName: string
+  gameName: string
+  rawScore: number
+  normalizedScore: number
+  screenshotUrl: string
+}
+
 type Dashboard = {
   date: string
   viewer: Viewer
@@ -121,6 +130,8 @@ export function App() {
             </div>
           </section>
 
+          {viewer.role === 'owner' && <OwnerPanel refresh={refresh} onChanged={() => setRefresh((value) => value + 1)} />}
+
           <section aria-labelledby="leaderboard-heading">
             <h2 id="leaderboard-heading">Scores</h2>
             <div className="table-wrap">
@@ -154,6 +165,90 @@ export function App() {
         </>
       )}
     </main>
+  )
+}
+
+function OwnerPanel({ refresh, onChanged }: { refresh: number; onChanged: () => void }) {
+  const [submissions, setSubmissions] = useState<OwnerSubmission[]>([])
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetch('/api/owner/submissions')
+      .then(async (response) => {
+        if (!response.ok) throw new Error()
+        setSubmissions(await response.json())
+        setError('')
+      })
+      .catch(() => setError('Could not load owner controls.'))
+  }, [refresh])
+
+  return (
+    <section aria-labelledby="owner-heading">
+      <h2 id="owner-heading">Owner controls</h2>
+      {error && <p role="alert" className="error">{error}</p>}
+      {!error && submissions.length === 0 && <p>No submissions to correct today.</p>}
+      <div className="owner-list">
+        {submissions.map((submission) => (
+          <OwnerSubmissionForm key={submission.id} submission={submission} onChanged={onChanged} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function OwnerSubmissionForm({ submission, onChanged }: { submission: OwnerSubmission; onChanged: () => void }) {
+  const [score, setScore] = useState(submission.rawScore.toString())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function save(event: FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/owner/submissions/${submission.id}/score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ score: Number(score) }),
+      })
+      if (!response.ok) throw new Error((await response.text()).trim())
+      onChanged()
+    } catch (reason) {
+      setError(reason instanceof Error && reason.message ? reason.message : 'Could not correct score.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function reopen() {
+    if (!window.confirm(`Remove ${submission.playerName}’s ${submission.gameName} submission and allow another upload?`)) return
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/owner/submissions/${submission.id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error((await response.text()).trim())
+      onChanged()
+    } catch (reason) {
+      setError(reason instanceof Error && reason.message ? reason.message : 'Could not reopen submission.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="owner-submission" onSubmit={save}>
+      <div>
+        <strong>{submission.playerName}</strong>
+        <p>{submission.gameName} · {formatScore(submission.normalizedScore)} points · <a href={submission.screenshotUrl} target="_blank" rel="noreferrer">Screenshot</a></p>
+      </div>
+      <label htmlFor={`owner-score-${submission.id}`}>Raw score</label>
+      <input id={`owner-score-${submission.id}`} type="number" min="0" required value={score} onChange={(event) => setScore(event.target.value)} />
+      {error && <p role="alert" className="error">{error}</p>}
+      <div className="submission-actions">
+        <button type="button" className="secondary" disabled={busy} onClick={reopen}>Reopen</button>
+        <button type="submit" disabled={busy}>Save score</button>
+      </div>
+    </form>
   )
 }
 

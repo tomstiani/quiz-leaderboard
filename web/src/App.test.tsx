@@ -21,6 +21,7 @@ const dashboard = {
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -96,6 +97,38 @@ describe('App', () => {
 
     expect(await screen.findByText(/Submitted:/)).toBeTruthy()
     expect(screen.getByRole('link', { name: 'View screenshot' }).getAttribute('href')).toBe('/api/screenshots/draft-1')
+  })
+
+  it('lets the owner correct and reopen today’s submissions', async () => {
+    const owner = { role: 'owner', name: 'Owner' }
+    const ownerDashboard = { ...dashboard, viewer: owner }
+    const submissions = [{ id: 'score-1', playerName: 'Alice', gameName: 'Geopolitix', rawScore: 300, normalizedScore: 33.333, screenshotUrl: '/api/screenshots/score-1' }]
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const path = input.toString()
+      if (path === '/api/session') return Response.json(owner)
+      if (path === '/api/dashboard') return Response.json(ownerDashboard)
+      if (path === '/api/owner/submissions') return Response.json(submissions)
+      if (path === '/api/owner/submissions/score-1/score') {
+        expect(JSON.parse(init?.body as string)).toEqual({ score: 450 })
+        return Response.json({ id: 'score-1', score: 450, normalizedScore: 50 })
+      }
+      if (path === '/api/owner/submissions/score-1') return new Response(null, { status: 204 })
+      throw new Error(`unexpected request: ${path}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    render(<App />)
+
+    const input = await screen.findByLabelText('Raw score') as HTMLInputElement
+    await user.clear(input)
+    await user.type(input, '450')
+    await user.click(screen.getByRole('button', { name: 'Save score' }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([path]) => path === '/api/owner/submissions/score-1/score')).toBe(true))
+
+    await user.click(screen.getByRole('button', { name: 'Reopen' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/owner/submissions/score-1', { method: 'DELETE' }))
+    expect(window.confirm).toHaveBeenCalled()
   })
 
   it('shows an invalid-token error without leaving the login screen', async () => {
