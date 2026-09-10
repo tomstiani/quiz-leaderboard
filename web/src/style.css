@@ -5,11 +5,11 @@
   --neutral: #0b1d1c;
   --on-surface: #fff;
   --border: #ffffff38;
-  --error: #d34b4b;
+  --error: #e36b6b;
   color: var(--on-surface);
   background: var(--primary);
-  font-family: "Basis Grotesque Pro", Inter, ui-sans-serif, system-ui, sans-serif;
-  font-synthesis: none;
+  color-scheme: dark;
+  font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -43,9 +43,13 @@ header {
   gap: 3.5rem;
   min-height: 20rem;
 }
+.header-actions { display: flex; align-items: flex-start; gap: 0.75rem; }
+.notification-control { display: grid; justify-items: end; gap: 0.35rem; }
+.notification-control button { margin: 0; }
+.notification-error { max-width: 16rem; color: var(--error); font-size: 0.75rem; text-align: right; }
 
-h1, h2 {
-  font-family: Freight, Georgia, "Times New Roman", serif;
+h1, h2, h3 {
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
 }
 
@@ -105,14 +109,14 @@ p {
   gap: 1rem;
 }
 
-.game strong {
-  font-family: Freight, Georgia, "Times New Roman", serif;
+.game h3 {
+  margin: 0;
   font-size: 2.25rem;
   font-weight: 400;
 }
 
 .game a, td a { color: var(--on-surface); text-underline-offset: 0.25rem; }
-.game-title a { color: #ffffffbf; font-size: 0.875rem; letter-spacing: 0.025rem; }
+.game-title a { flex: none; color: #ffffffbf; font-size: 0.875rem; letter-spacing: 0.025rem; white-space: nowrap; }
 .game:hover { background: var(--secondary); border-color: #ffffff70; }
 
 .table-wrap {
@@ -140,7 +144,7 @@ thead th {
 }
 
 tbody th {
-  font-family: Freight, Georgia, "Times New Roman", serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 1.5rem;
 }
 
@@ -159,9 +163,10 @@ button {
 }
 
 button:hover { background: var(--secondary); border-color: #ffffff70; }
-button:disabled { opacity: 0.55; cursor: wait; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+button[aria-busy="true"] { cursor: wait; }
 
-.login {
+.login, .loading {
   display: grid;
   min-height: 100vh;
   padding: 3.5rem 0;
@@ -207,19 +212,33 @@ input:focus, button:focus-visible, a:focus-visible {
 .submission-actions { display: flex; gap: 0.75rem; }
 .submission small { display: block; margin-top: 0.75rem; color: #ffffff9e; }
 .submission img { display: block; width: 100%; max-height: 18rem; object-fit: contain; border-radius: 0.5rem; }
-.submission input[type="file"] { height: auto; border-radius: 0.5rem; }
+.submission input[type="file"] { height: auto; padding: 0.5rem; overflow: hidden; border-radius: 0.5rem; }
+.submission input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  color: var(--on-surface);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  cursor: pointer;
+}
 .owner-list { display: grid; gap: 0.875rem; }
 .owner-submission {
   display: grid;
-  grid-template-columns: minmax(12rem, 1fr) minmax(8rem, 0.35fr) minmax(14rem, 0.5fr);
+  grid-template-areas: "identity score" "actions score" "error error";
+  grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 0.5fr);
   align-items: end;
   gap: 1rem;
   padding: 1.5rem;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
 }
+.owner-identity { grid-area: identity; }
+.owner-score { grid-area: score; margin: 0; }
+.owner-score input { margin-top: 0.875rem; }
+.owner-submission .submission-actions { grid-area: actions; }
+.owner-submission .error { grid-area: error; margin: 0; }
 .owner-submission p { margin-bottom: 0; }
-.owner-submission label { margin: 0 0 0.875rem; }
 .owner-submission .submission-actions button { margin: 0; }
 .owner-submission a { color: var(--on-surface); }
 .error { color: var(--error); }
@@ -229,10 +248,19 @@ input:focus, button:focus-visible, a:focus-visible {
   .dashboard, .login { padding: 1.75rem 0 3.5rem; }
   header { min-height: 16rem; align-items: stretch; flex-direction: column; gap: 0.875rem; }
   header button { align-self: start; }
+  .header-actions { align-items: flex-start; flex-flow: row wrap; }
+  .notification-control { justify-items: start; }
+  .game-title { align-items: start; flex-direction: column; gap: 0.5rem; }
   h1 { font-size: clamp(3.25rem, 17vw, 5rem); }
   h2 { margin-top: 3.5rem; }
   .login-form { padding: 2.25rem 1.5rem; }
-  .owner-submission { grid-template-columns: 1fr; }
+  .submission-actions { flex-direction: column; }
+  .owner-submission {
+    grid-template-areas: "identity" "score" "actions" "error";
+    grid-template-columns: 1fr;
+  }
+  .owner-submission .submission-actions { flex-direction: row; flex-wrap: wrap; }
+  .score-detail { display: none; }
   th, td { padding: 1rem; }
 }
 

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,6 +71,26 @@ func applyMigrations(db *sql.DB) error {
 		}
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("commit migration %s: %w", entry.Name(), err)
+		}
+	}
+	for _, entry := range entries {
+		script, err := migrations.ReadFile("migrations/" + entry.Name())
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
+		}
+		digest := sha256.Sum256(script)
+		checksum := hex.EncodeToString(digest[:])
+		var stored sql.NullString
+		if err := db.QueryRow("SELECT checksum FROM schema_migrations WHERE name = ?", entry.Name()).Scan(&stored); err != nil {
+			return fmt.Errorf("read migration checksum %s: %w", entry.Name(), err)
+		}
+		if stored.Valid && stored.String != checksum {
+			return fmt.Errorf("migration %s changed after it was applied", entry.Name())
+		}
+		if !stored.Valid {
+			if _, err := db.Exec("UPDATE schema_migrations SET checksum = ? WHERE name = ?", checksum, entry.Name()); err != nil {
+				return fmt.Errorf("record migration checksum %s: %w", entry.Name(), err)
+			}
 		}
 	}
 	return nil

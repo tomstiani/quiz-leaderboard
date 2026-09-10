@@ -1,11 +1,39 @@
-config.json
-data/
-web/dist/
-web/node_modules/
-.env
-.DS_Store
+# Runtime secrets and persistent data
+/config.json
+/config.local.json
+/config.production.json
+.env*
+!.env.example
+/data/
+/.e2e-data/
+/backups/
+/dailygame-*.tar.gz
 
+# Build outputs and dependencies
+/dailygame-leaderboard
+/.pnpm-store/
+/web/node_modules/
+/web/dist/
 *.tsbuildinfo
-.e2e-data/
-web/playwright-report/
-web/test-results/
+
+# Test and coverage output
+/coverage/
+/web/coverage/
+/web/playwright-report/
+/web/blob-report/
+/web/test-results/
+*.test
+*.prof
+coverage.out
+
+# Local logs and temporary files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Editors
+/.idea/
+/.vscode/

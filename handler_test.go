@@ -104,6 +104,9 @@ func TestPlayerAuthenticationAndDashboard(t *testing.T) {
 	if response.Code != http.StatusNoContent || response.Result().Cookies()[0].MaxAge >= 0 {
 		t.Fatalf("logout did not clear cookie: %+v", response.Result().Cookies())
 	}
+	if response := request(t, handler, http.MethodGet, "/api/session", nil, cookie); response.Code != http.StatusUnauthorized {
+		t.Fatalf("logged-out cookie returned %d", response.Code)
+	}
 }
 
 func TestOwnerAndCurrentSession(t *testing.T) {
@@ -145,7 +148,12 @@ func TestLoginValidation(t *testing.T) {
 
 func TestRotatedAndTamperedSessionsAreRejected(t *testing.T) {
 	cfg := testConfig()
-	handler := testHandler(t, cfg, time.Now())
+	db, err := openDatabase(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	handler, _ := newHandler(cfg, db, time.Now)
 	cookie, _ := login(t, handler, cfg.Players[0].Token)
 
 	tampered := *cookie
@@ -155,14 +163,14 @@ func TestRotatedAndTamperedSessionsAreRejected(t *testing.T) {
 	}
 
 	cfg.Players[0].Token = "rotated-token-123456789"
-	rotatedHandler := testHandler(t, cfg, time.Now())
+	rotatedHandler, _ := newHandler(cfg, db, time.Now)
 	if response := request(t, rotatedHandler, http.MethodGet, "/api/session", nil, cookie); response.Code != http.StatusUnauthorized {
 		t.Fatalf("rotated token cookie returned %d", response.Code)
 	}
 
 	cfg = testConfig()
 	cfg.Players = cfg.Players[1:]
-	removedHandler := testHandler(t, cfg, time.Now())
+	removedHandler, _ := newHandler(cfg, db, time.Now)
 	if response := request(t, removedHandler, http.MethodGet, "/api/session", nil, cookie); response.Code != http.StatusUnauthorized {
 		t.Fatalf("removed player cookie returned %d", response.Code)
 	}

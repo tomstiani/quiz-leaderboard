@@ -20,7 +20,7 @@ The product requirements live in [`../docs/product.md`](../docs/product.md). Pro
 | 3 | [Screenshot submissions](03-screenshot-submissions.md) | `complete` | 2 |
 | 4 | [Scoring and live leaderboard](04-scoring-live-leaderboard.md) | `complete` | 3 |
 | 5 | [Owner corrections and notifications](05-owner-notifications.md) | `blocked` | 4 |
-| 6 | [Deployment and hardening](06-deployment-hardening.md) | `not_started` | 5 |
+| 6 | [Deployment and hardening](06-deployment-hardening.md) | `blocked` | 5 |
 
 ## Working rules
 

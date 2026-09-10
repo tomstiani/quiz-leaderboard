@@ -21,6 +21,11 @@ Let the owner repair today's mistakes and notify the group once when a player co
 - [x] **NTFY-004:** Suppress repeat notifications after an owner reopens and the player reconfirms.
 - [x] **NTFY-005:** Keep submission confirmation successful when ntfy is unavailable.
 - [x] **OWN-006:** Test owner authorization, correction, reopen, score recalculation, and notification deduplication.
+- [x] **PUSH-001:** Store authenticated Web Push subscriptions and private VAPID configuration.
+- [x] **PUSH-002:** Register a service worker and let players enable or disable browser notifications.
+- [x] **PUSH-003:** Deliver completion notifications while the dashboard is closed and remove expired subscriptions.
+- [x] **PUSH-004:** Remove the current browser subscription on explicit logout.
+- [x] **PUSH-005:** Deduplicate browser notifications per player and day and test encrypted delivery.
 
 ## Acceptance criteria
 
@@ -28,11 +33,12 @@ Let the owner repair today's mistakes and notify the group once when a player co
 - [x] The owner can repair today's score or permit a replacement screenshot.
 - [x] Owner actions cannot alter retained past days.
 - [x] Completing both games sends one message containing the player name and combined total.
-- [x] ntfy failure does not lose or roll back a confirmed submission.
+- [x] ntfy or Web Push failure does not lose or roll back a confirmed submission.
+- [x] An opted-in browser can display completion notifications after the dashboard is closed.
 
 ## Blockers
 
-- Existing ntfy connection details are required for real-service verification. Automated tests cover success, failure, retry, and deduplication with a local HTTP service.
+- Existing ntfy connection details and the public HTTPS domain are required for real-service notification verification. Automated tests cover ntfy success, failure, and retry plus encrypted Web Push delivery, stale subscription cleanup, and per-channel deduplication.
 
 ## Verification
 

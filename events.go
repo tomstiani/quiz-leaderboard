@@ -10,10 +10,16 @@ import (
 type eventBroker struct {
 	mu          sync.Mutex
 	subscribers map[chan struct{}]struct{}
+	done        chan struct{}
+	stop        sync.Once
 }
 
 func newEventBroker() *eventBroker {
-	return &eventBroker{subscribers: map[chan struct{}]struct{}{}}
+	return &eventBroker{subscribers: map[chan struct{}]struct{}{}, done: make(chan struct{})}
+}
+
+func (broker *eventBroker) close() {
+	broker.stop.Do(func() { close(broker.done) })
 }
 
 func (broker *eventBroker) subscribe() (<-chan struct{}, func()) {
@@ -59,6 +65,8 @@ func serveEvents(w http.ResponseWriter, r *http.Request, broker *eventBroker) {
 	for {
 		select {
 		case <-r.Context().Done():
+			return
+		case <-broker.done:
 			return
 		case <-events:
 			fmt.Fprint(w, "event: leaderboard\ndata: changed\n\n")

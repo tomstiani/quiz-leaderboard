@@ -1,11 +1,36 @@
 services:
   app:
     build: .
+    image: dailygame-leaderboard:local
     restart: unless-stopped
+    init: true
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 64
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       CONFIG_FILE: /config/config.json
+      REQUIRE_SECURE_COOKIES: "${REQUIRE_SECURE_COOKIES:-true}"
     volumes:
       - ./config.json:/config/config.json:ro
       - ./data:/app/data
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 15s

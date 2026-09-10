@@ -82,18 +82,22 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		}
-		setSessionCookie(w, cfg, user, credential)
+		if err := setSessionCookie(w, cfg, db, user, credential); err != nil {
+			http.Error(w, "could not create session", http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Cache-Control", "no-store")
 		writeJSON(w, http.StatusOK, user)
 	})
 	mux.HandleFunc("POST /api/logout", func(w http.ResponseWriter, r *http.Request) {
+		revokeSession(cfg, db, r)
 		clearSessionCookie(w, cfg.SecureCookies)
 		w.WriteHeader(http.StatusNoContent)
 	})
-	mux.HandleFunc("GET /api/session", authenticated(cfg, func(w http.ResponseWriter, _ *http.Request, user principal) {
+	mux.HandleFunc("GET /api/session", authenticated(cfg, db, func(w http.ResponseWriter, _ *http.Request, user principal) {
 		writeJSON(w, http.StatusOK, user)
 	}))
-	mux.HandleFunc("GET /api/dashboard", authenticated(cfg, func(w http.ResponseWriter, _ *http.Request, user principal) {
+	mux.HandleFunc("GET /api/dashboard", authenticated(cfg, db, func(w http.ResponseWriter, _ *http.Request, user principal) {
 		response := dashboardResponse{Date: day(), Viewer: user}
 		for _, game := range cfg.Games {
 			response.Games = append(response.Games, dashboardGame{ID: game.ID, Name: game.Name, URL: game.URL, MaxScore: game.MaxScore})
@@ -131,10 +135,10 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 		rankPlayers(response.Players)
 		writeJSON(w, http.StatusOK, response)
 	}))
-	mux.HandleFunc("POST /api/games/{gameID}/draft", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+	mux.HandleFunc("POST /api/games/{gameID}/draft", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
 		createDraft(w, r, cfg, db, vision, user, day())
 	}))
-	mux.HandleFunc("POST /api/drafts/{id}/confirm", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+	mux.HandleFunc("POST /api/drafts/{id}/confirm", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
 		if confirmDraft(w, r, cfg, db, user, day()) {
 			broker.publish()
 			if err := notifyCompletion(r.Context(), cfg, db, user.PlayerID, day()); err != nil {
@@ -142,33 +146,42 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 			}
 		}
 	}))
-	mux.HandleFunc("GET /api/events", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, _ principal) {
+	mux.HandleFunc("GET /api/events", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, _ principal) {
 		serveEvents(w, r, broker)
 	}))
-	mux.HandleFunc("GET /api/screenshots/{id}", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+	mux.HandleFunc("GET /api/push/config", authenticated(cfg, db, func(w http.ResponseWriter, _ *http.Request, _ principal) {
+		pushConfigResponse(w, cfg)
+	}))
+	mux.HandleFunc("POST /api/push/subscriptions", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
+		savePushSubscription(w, r, db, user)
+	}))
+	mux.HandleFunc("DELETE /api/push/subscriptions", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
+		deletePushSubscription(w, r, db, user)
+	}))
+	mux.HandleFunc("GET /api/screenshots/{id}", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
 		serveScreenshot(w, r, cfg, db, user)
 	}))
-	mux.HandleFunc("GET /api/owner/submissions", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+	mux.HandleFunc("GET /api/owner/submissions", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
 		listOwnerSubmissions(w, r, cfg, db, user, day())
 	}))
-	mux.HandleFunc("POST /api/owner/submissions/{id}/score", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+	mux.HandleFunc("POST /api/owner/submissions/{id}/score", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
 		if correctOwnerScore(w, r, cfg, db, user, day()) {
 			broker.publish()
 		}
 	}))
-	mux.HandleFunc("DELETE /api/owner/submissions/{id}", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
+	mux.HandleFunc("DELETE /api/owner/submissions/{id}", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
 		if reopenOwnerSubmission(w, r, cfg, db, user, day()) {
 			broker.publish()
 		}
 	}))
 	mux.Handle("/api/", http.NotFoundHandler())
 	mux.Handle("/", spaHandler(cfg.WebDir))
-	return mux, nil
+	return secureHTTP(mux), nil
 }
 
-func authenticated(cfg config, next func(http.ResponseWriter, *http.Request, principal)) http.HandlerFunc {
+func authenticated(cfg config, db *sql.DB, next func(http.ResponseWriter, *http.Request, principal)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, ok := authenticate(cfg, r)
+		user, ok := authenticate(cfg, db, r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

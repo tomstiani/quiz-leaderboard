@@ -26,7 +26,7 @@ The MVP supports:
 - Player review and confirmation before final submission
 - A combined daily leaderboard with real-time updates
 - Visible screenshots, raw scores, and normalized scores
-- One ntfy notification when a player completes all games
+- One ntfy and browser push notification when a player completes all games
 - Owner correction of today's invalid submissions
 
 The dashboard must work equally well on phone and desktop browsers.
@@ -158,11 +158,11 @@ Geopolitix normalization uses 900 as its maximum score.
 
 ## Notifications
 
-Use an existing self-hosted ntfy instance. Every player subscribes to one private team topic.
+Use an existing self-hosted ntfy instance and standards-based Web Push. Every player can subscribe to the private ntfy topic and enable browser notifications from the dashboard. Browser notifications must work after the dashboard is closed.
 
-When a player confirms their final unfinished game, publish a message containing the player's name and combined total. Send at most one completion notification per player and day, including after an owner reopens and the player reconfirms a submission.
+When a player confirms their final unfinished game, publish a message containing the player's name and combined total. Send at most one completion notification through each channel per player and day, including after an owner reopens and the player reconfirms a submission.
 
-The ntfy endpoint, topic, and credentials belong in private deployment configuration.
+The ntfy endpoint, topic, credentials, and VAPID keys belong in private deployment configuration. Explicit logout removes that browser's push subscription.
 
 ## Trust and privacy
 
@@ -209,7 +209,7 @@ The Go service should serve the built frontend so deployment needs one applicati
 - Missing submissions score zero.
 - Both games have equal weight.
 - Equal totals share a rank.
-- Completion notifications are sent at most once per player and day.
+- Completion notifications are sent at most once through each channel per player and day.
 - Past data is retained but hidden.
 
 ## Required inputs

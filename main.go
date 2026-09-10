@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -25,7 +28,8 @@ func run() error {
 	}
 	defer db.Close()
 
-	handler, err := newHandler(cfg, db, nil)
+	broker := newEventBroker()
+	handler, err := newHandler(cfg, db, nil, broker)
 	if err != nil {
 		return err
 	}
@@ -36,9 +40,26 @@ func run() error {
 		ReadTimeout:       60 * time.Second,
 		WriteTimeout:      75 * time.Second,
 		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	shutdownDone := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		broker.close()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("shutdown: %v", err)
+		}
+		close(shutdownDone)
+	}()
 	log.Printf("listening on %s", cfg.Address)
-	return server.ListenAndServe()
+	err = server.ListenAndServe()
+	stop()
+	<-shutdownDone
+	return err
 }
 
 func spaHandler(directory string) http.Handler {

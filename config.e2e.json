@@ -36,5 +36,6 @@
     "model": "fake-vision-model",
     "apiKey": "e2e-api-key"
   },
-  "ntfy": { "url": "", "topic": "", "token": "" }
+  "ntfy": { "url": "", "topic": "", "token": "" },
+  "webPush": { "publicKey": "", "privateKey": "", "subject": "" }
 }

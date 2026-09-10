@@ -42,6 +42,18 @@ test('owner token creates an owner session', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Scores' })).toBeVisible()
 })
 
+test('mobile leaderboard keeps rank, player, and total visible without scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.goto('/')
+  await page.getByLabel('Token').fill('e2e-alice-token-123456')
+  await page.getByRole('button', { name: 'Sign in' }).click()
+
+  await expect(page.getByRole('columnheader', { name: 'Total' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: 'Completed' })).toBeHidden()
+  const table = page.locator('.table-wrap')
+  expect(await table.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(await table.evaluate((element) => element.clientWidth))
+})
+
 test('submission updates another player live and shares its screenshot', async ({ page, browser }) => {
   await page.goto('/')
   await page.getByLabel('Token').fill('e2e-alice-token-123456')

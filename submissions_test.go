@@ -280,6 +280,24 @@ func TestDraftCleanup(t *testing.T) {
 	}
 }
 
+func TestDailyVisionAttemptLimit(t *testing.T) {
+	db, err := openDatabase(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for attempt := 0; attempt < 10; attempt++ {
+		allowed, err := claimVisionAttempt(db, "alice", "geopolitix", "2026-09-10")
+		if err != nil || !allowed {
+			t.Fatalf("attempt %d: allowed=%v err=%v", attempt+1, allowed, err)
+		}
+	}
+	allowed, err := claimVisionAttempt(db, "alice", "geopolitix", "2026-09-10")
+	if err != nil || allowed {
+		t.Fatalf("eleventh attempt: allowed=%v err=%v", allowed, err)
+	}
+}
+
 func TestVisionServiceErrorsDoNotPersist(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

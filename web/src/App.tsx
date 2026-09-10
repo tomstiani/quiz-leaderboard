@@ -78,11 +78,12 @@ export function App() {
     }
   }, [viewer])
 
-  if (viewer === undefined) return <main><p>Loading…</p></main>
+  if (viewer === undefined) return <main className="loading" role="status" aria-live="polite"><p>Loading…</p></main>
   if (!viewer) return <Login onLogin={setViewer} />
 
   async function logout() {
     try {
+      await removeBrowserPushSubscription().catch(() => {})
       const response = await fetch('/api/logout', { method: 'POST' })
       if (!response.ok) throw new Error()
       setDashboard(null)
@@ -102,7 +103,10 @@ export function App() {
           <h1>Daily leaderboard</h1>
           <p>Signed in as {viewer.name}{viewer.role === 'owner' ? ' (owner)' : ''}</p>
         </div>
-        <button className="secondary" onClick={logout}>Log out</button>
+        <div className="header-actions">
+          <BrowserNotifications />
+          <button className="secondary" onClick={logout}>Log out</button>
+        </div>
       </header>
 
       {error && <p role="alert" className="error">{error}</p>}
@@ -116,7 +120,7 @@ export function App() {
                 return (
                   <article className="game" key={game.id}>
                     <div className="game-title">
-                      <strong>{game.name}</strong>
+                      <h3>{game.name}</h3>
                       <a href={game.url} target="_blank" rel="noreferrer">Play game →</a>
                     </div>
                     {score ? (
@@ -140,8 +144,8 @@ export function App() {
                   <tr>
                     <th>Rank</th>
                     <th>Player</th>
-                    <th>Completed</th>
-                    {dashboard.games.map((game) => <th key={game.id}>{game.name}</th>)}
+                    <th className="score-detail">Completed</th>
+                    {dashboard.games.map((game) => <th className="score-detail" key={game.id}>{game.name}</th>)}
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -150,10 +154,10 @@ export function App() {
                     <tr key={player.id}>
                       <td>#{player.rank}</td>
                       <th>{player.name}</th>
-                      <td>{player.completed}/{dashboard.games.length}</td>
+                      <td className="score-detail">{player.completed}/{dashboard.games.length}</td>
                       {dashboard.games.map((game) => {
                         const score = player.scores.find((item) => item.gameId === game.id)
-                        return <td key={game.id}>{score ? <a href={score.screenshotUrl} target="_blank" rel="noreferrer">{score.rawScore} <small>({formatScore(score.normalizedScore)})</small></a> : '—'}</td>
+                        return <td className="score-detail" key={game.id}>{score ? <a href={score.screenshotUrl} target="_blank" rel="noreferrer">{score.rawScore} <small>({formatScore(score.normalizedScore)})</small></a> : '—'}</td>
                       })}
                       <td>{formatScore(player.combinedScore)}</td>
                     </tr>
@@ -168,11 +172,96 @@ export function App() {
   )
 }
 
-function OwnerPanel({ refresh, onChanged }: { refresh: number; onChanged: () => void }) {
-  const [submissions, setSubmissions] = useState<OwnerSubmission[]>([])
+function BrowserNotifications() {
+  const [publicKey, setPublicKey] = useState('')
+  const [subscribed, setSubscribed] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return
+    fetch('/api/push/config')
+      .then(async (response) => {
+        if (!response.ok) throw new Error()
+        const config = await response.json()
+        if (!config.enabled) return
+        setPublicKey(config.publicKey)
+        const registration = await navigator.serviceWorker.register('/sw.js')
+        setSubscribed(Boolean(await registration.pushManager.getSubscription()))
+      })
+      .catch(() => setError('Browser notifications are unavailable.'))
+  }, [])
+
+  if (!publicKey) return error ? <span role="alert" className="notification-error">{error}</span> : null
+
+  async function enable() {
+    setError('')
+    try {
+      if (await Notification.requestPermission() !== 'granted') {
+        setError('Notifications were not allowed.')
+        return
+      }
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: decodeVapidKey(publicKey),
+      })
+      const response = await fetch('/api/push/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription),
+      })
+      if (!response.ok) throw new Error()
+      setSubscribed(true)
+    } catch {
+      setError('Could not enable browser notifications.')
+    }
+  }
+
+  async function disable() {
+    setError('')
+    try {
+      await removeBrowserPushSubscription()
+      setSubscribed(false)
+    } catch {
+      setError('Could not disable browser notifications.')
+    }
+  }
+
+  return (
+    <div className="notification-control">
+      <button className="secondary" onClick={subscribed ? disable : enable}>
+        {subscribed ? 'Disable notifications' : 'Enable notifications'}
+      </button>
+      {error && <span role="alert" className="notification-error">{error}</span>}
+    </div>
+  )
+}
+
+function decodeVapidKey(value: string) {
+  const base64 = (value + '='.repeat((4 - value.length % 4) % 4)).replaceAll('-', '+').replaceAll('_', '/')
+  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
+}
+
+async function removeBrowserPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+  const registration = await navigator.serviceWorker.getRegistration()
+  const subscription = await registration?.pushManager.getSubscription()
+  if (!subscription) return
+  const response = await fetch('/api/push/subscriptions', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint: subscription.endpoint }),
+  })
+  if (!response.ok) throw new Error()
+  await subscription.unsubscribe()
+}
+
+function OwnerPanel({ refresh, onChanged }: { refresh: number; onChanged: () => void }) {
+  const [submissions, setSubmissions] = useState<OwnerSubmission[] | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setSubmissions(null)
     fetch('/api/owner/submissions')
       .then(async (response) => {
         if (!response.ok) throw new Error()
@@ -186,9 +275,10 @@ function OwnerPanel({ refresh, onChanged }: { refresh: number; onChanged: () => 
     <section aria-labelledby="owner-heading">
       <h2 id="owner-heading">Owner controls</h2>
       {error && <p role="alert" className="error">{error}</p>}
-      {!error && submissions.length === 0 && <p>No submissions to correct today.</p>}
+      {!error && submissions === null && <p role="status">Loading owner controls…</p>}
+      {!error && submissions?.length === 0 && <p>No submissions to correct today.</p>}
       <div className="owner-list">
-        {submissions.map((submission) => (
+        {submissions?.map((submission) => (
           <OwnerSubmissionForm key={submission.id} submission={submission} onChanged={onChanged} />
         ))}
       </div>
@@ -237,16 +327,17 @@ function OwnerSubmissionForm({ submission, onChanged }: { submission: OwnerSubmi
 
   return (
     <form className="owner-submission" onSubmit={save}>
-      <div>
+      <div className="owner-identity">
         <strong>{submission.playerName}</strong>
         <p>{submission.gameName} · {formatScore(submission.normalizedScore)} points · <a href={submission.screenshotUrl} target="_blank" rel="noreferrer">Screenshot</a></p>
       </div>
-      <label htmlFor={`owner-score-${submission.id}`}>Raw score</label>
-      <input id={`owner-score-${submission.id}`} type="number" min="0" required value={score} onChange={(event) => setScore(event.target.value)} />
+      <label className="owner-score" htmlFor={`owner-score-${submission.id}`}>Raw score
+        <input id={`owner-score-${submission.id}`} type="number" min="0" required value={score} onChange={(event) => setScore(event.target.value)} />
+      </label>
       {error && <p role="alert" className="error">{error}</p>}
       <div className="submission-actions">
-        <button type="button" className="secondary" disabled={busy} onClick={reopen}>Reopen</button>
-        <button type="submit" disabled={busy}>Save score</button>
+        <button type="button" className="secondary" disabled={busy} aria-busy={busy} onClick={reopen}>Reopen</button>
+        <button type="submit" disabled={busy} aria-busy={busy}>Save score</button>
       </div>
     </form>
   )
@@ -325,8 +416,8 @@ function SubmissionForm({ game, onConfirmed }: { game: Game; onConfirmed: () => 
         <input id={`score-${game.id}`} type="number" min="0" max={game.maxScore || undefined} required value={score} onChange={(event) => setScore(event.target.value)} />
         {error && <p role="alert" className="error">{error}</p>}
         <div className="submission-actions">
-          <button type="button" className="secondary" disabled={busy} onClick={() => { setDraftID(''); setScore(''); setFile(null) }}>Choose another</button>
-          <button type="submit" disabled={busy}>{busy ? 'Confirming…' : 'Confirm score'}</button>
+          <button type="button" className="secondary" disabled={busy} aria-busy={busy} onClick={() => { setDraftID(''); setScore(''); setFile(null) }}>Choose another</button>
+          <button type="submit" disabled={busy} aria-busy={busy}>{busy ? 'Confirming…' : 'Confirm score'}</button>
         </div>
       </form>
     )
@@ -338,7 +429,7 @@ function SubmissionForm({ game, onConfirmed }: { game: Game; onConfirmed: () => 
       <input id={`screenshot-${game.id}`} type="file" accept="image/png,image/jpeg,image/webp" required onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
       <small>Processed by a third-party vision model.</small>
       {error && <p role="alert" className="error">{error}</p>}
-      <button type="submit" disabled={!file || busy}>{busy ? 'Analyzing…' : 'Analyze screenshot'}</button>
+      <button type="submit" disabled={!file || busy} aria-busy={busy}>{busy ? 'Analyzing…' : 'Analyze screenshot'}</button>
     </form>
   )
 }
@@ -379,7 +470,7 @@ function Login({ onLogin }: { onLogin: (viewer: Viewer) => void }) {
         <label htmlFor="token">Token</label>
         <input id="token" name="token" type="password" autoComplete="current-password" required value={token} onChange={(event) => setToken(event.target.value)} />
         {error && <p role="alert" className="error">{error}</p>}
-        <button type="submit" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button>
+        <button type="submit" disabled={submitting} aria-busy={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button>
       </form>
     </main>
   )

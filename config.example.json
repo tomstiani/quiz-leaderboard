@@ -3,7 +3,7 @@
   "dataDir": "data",
   "webDir": "web/dist",
   "sessionSecret": "replace-with-at-least-32-random-characters",
-  "secureCookies": false,
+  "secureCookies": true,
   "ownerToken": "replace-owner-token",
   "players": [
     {
@@ -35,5 +35,10 @@
     "url": "",
     "topic": "",
     "token": ""
+  },
+  "webPush": {
+    "publicKey": "",
+    "privateKey": "",
+    "subject": ""
   }
 }

@@ -55,6 +55,15 @@ func createDraft(w http.ResponseWriter, r *http.Request, cfg config, db *sql.DB,
 		}
 		return
 	}
+	allowed, err := claimVisionAttempt(db, user.PlayerID, game.ID, day)
+	if err != nil {
+		http.Error(w, "could not reserve screenshot analysis", http.StatusInternalServerError)
+		return
+	}
+	if !allowed {
+		http.Error(w, "daily screenshot analysis limit reached", http.StatusTooManyRequests)
+		return
+	}
 	result, err := vision.analyze(r.Context(), game, mediaType, image)
 	if err != nil {
 		http.Error(w, "screenshot analysis failed", http.StatusBadGateway)
@@ -261,6 +270,17 @@ func cleanupDrafts(db *sql.DB, dataDir string, before time.Time) {
 			os.Remove(filepath.Join(dataDir, "screenshots", filepath.Base(filename)))
 		}
 	}
+}
+
+func claimVisionAttempt(db *sql.DB, playerID, gameID, day string) (bool, error) {
+	var attempts int
+	err := db.QueryRow(`INSERT INTO vision_attempts (player_id, game_id, game_day, attempts) VALUES (?, ?, ?, 1)
+		ON CONFLICT(player_id, game_id, game_day) DO UPDATE SET attempts = attempts + 1 WHERE attempts < 10
+		RETURNING attempts`, playerID, gameID, day).Scan(&attempts)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func findGame(cfg config, id string) (gameConfig, bool) {

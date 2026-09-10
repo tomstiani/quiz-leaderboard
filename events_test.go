@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -24,11 +23,11 @@ func TestEventBrokerPublishesAndUnsubscribes(t *testing.T) {
 }
 
 func TestEventStreamHeadersAndInitialRetry(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	request := httptest.NewRequest("GET", "/api/events", nil).WithContext(ctx)
+	request := httptest.NewRequest("GET", "/api/events", nil)
 	response := httptest.NewRecorder()
-	serveEvents(response, request, newEventBroker())
+	broker := newEventBroker()
+	broker.close()
+	serveEvents(response, request, broker)
 
 	if response.Header().Get("Content-Type") != "text/event-stream" || response.Header().Get("X-Accel-Buffering") != "no" {
 		t.Fatalf("unexpected stream headers: %v", response.Header())

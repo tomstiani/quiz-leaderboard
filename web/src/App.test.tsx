@@ -99,6 +99,25 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'View screenshot' }).getAttribute('href')).toBe('/api/screenshots/draft-1')
   })
 
+  it('shows owner loading before the empty state', async () => {
+    const owner = { role: 'owner', name: 'Owner' }
+    let resolveSubmissions!: (response: Response) => void
+    const pendingSubmissions = new Promise<Response>((resolve) => { resolveSubmissions = resolve })
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const path = input.toString()
+      if (path === '/api/session') return Response.json(owner)
+      if (path === '/api/dashboard') return Response.json({ ...dashboard, viewer: owner })
+      if (path === '/api/owner/submissions') return pendingSubmissions
+      throw new Error(`unexpected request: ${path}`)
+    }))
+    render(<App />)
+
+    expect((await screen.findByText('Loading owner controls…')).getAttribute('role')).toBe('status')
+    expect(screen.queryByText('No submissions to correct today.')).toBeNull()
+    resolveSubmissions(Response.json([]))
+    expect(await screen.findByText('No submissions to correct today.')).toBeTruthy()
+  })
+
   it('lets the owner correct and reopen today’s submissions', async () => {
     const owner = { role: 'owner', name: 'Owner' }
     const ownerDashboard = { ...dashboard, viewer: owner }
@@ -144,6 +163,45 @@ describe('App', () => {
 
     expect((await screen.findByRole('alert')).textContent).toBe('That token is not valid.')
     expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeTruthy()
+  })
+
+  it('enables and disables browser push notifications', async () => {
+    let active = false
+    const subscription = {
+      endpoint: 'https://push.example/subscription',
+      toJSON: () => ({ endpoint: 'https://push.example/subscription', keys: { p256dh: 'key', auth: 'auth' } }),
+      unsubscribe: vi.fn(async () => { active = false; return true }),
+    }
+    const registration = {
+      pushManager: {
+        getSubscription: vi.fn(async () => active ? subscription : null),
+        subscribe: vi.fn(async () => { active = true; return subscription }),
+      },
+    }
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), {
+      serviceWorker: { register: vi.fn(async () => registration), ready: Promise.resolve(registration), getRegistration: vi.fn(async () => registration) },
+    }))
+    vi.stubGlobal('PushManager', class {})
+    vi.stubGlobal('Notification', { requestPermission: vi.fn(async () => 'granted') })
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const path = input.toString()
+      if (path === '/api/session') return Response.json(player)
+      if (path === '/api/dashboard') return Response.json(dashboard)
+      if (path === '/api/push/config') return Response.json({ enabled: true, publicKey: 'AQID' })
+      if (path === '/api/push/subscriptions' && init?.method === 'POST') return new Response(null, { status: 204 })
+      if (path === '/api/push/subscriptions' && init?.method === 'DELETE') return new Response(null, { status: 204 })
+      throw new Error(`unexpected request: ${path}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: 'Enable notifications' }))
+    await waitFor(() => expect(registration.pushManager.subscribe).toHaveBeenCalled())
+    expect(fetchMock.mock.calls.some(([path, init]) => path === '/api/push/subscriptions' && init?.method === 'POST')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Disable notifications' }))
+    await waitFor(() => expect(subscription.unsubscribe).toHaveBeenCalled())
+    expect(fetchMock.mock.calls.some(([path, init]) => path === '/api/push/subscriptions' && init?.method === 'DELETE')).toBe(true)
   })
 
   it('refreshes the dashboard after a leaderboard event', async () => {

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type config struct {
@@ -18,6 +20,17 @@ type config struct {
 	Games         []gameConfig   `json:"games"`
 	Vision        serviceConfig  `json:"vision"`
 	Ntfy          serviceConfig  `json:"ntfy"`
+	WebPush       webPushConfig  `json:"webPush"`
+}
+
+type webPushConfig struct {
+	PublicKey  string `json:"publicKey"`
+	PrivateKey string `json:"privateKey"`
+	Subject    string `json:"subject"`
+}
+
+func (cfg webPushConfig) enabled() bool {
+	return cfg.PublicKey != "" && cfg.PrivateKey != "" && cfg.Subject != ""
 }
 
 type playerConfig struct {
@@ -65,15 +78,38 @@ func loadConfig(path string) (config, error) {
 	if err := cfg.validate(); err != nil {
 		return config{}, fmt.Errorf("validate config: %w", err)
 	}
+	if os.Getenv("REQUIRE_SECURE_COOKIES") == "true" && !cfg.SecureCookies {
+		return config{}, fmt.Errorf("validate config: secureCookies must be true for deployment")
+	}
 	return cfg, nil
 }
 
 func (cfg config) validate() error {
-	if len(cfg.SessionSecret) < 32 {
-		return fmt.Errorf("sessionSecret must be at least 32 characters")
+	pushValues := 0
+	for _, value := range []string{cfg.WebPush.PublicKey, cfg.WebPush.PrivateKey, cfg.WebPush.Subject} {
+		if value != "" {
+			pushValues++
+		}
 	}
-	if len(cfg.OwnerToken) < 16 {
-		return fmt.Errorf("ownerToken must be at least 16 characters")
+	if pushValues != 0 && pushValues != 3 {
+		return fmt.Errorf("webPush requires publicKey, privateKey, and subject")
+	}
+	if cfg.WebPush.Subject != "" {
+		subject, err := url.ParseRequestURI(cfg.WebPush.Subject)
+		if err != nil || (subject.Scheme != "mailto" && subject.Scheme != "https") {
+			return fmt.Errorf("webPush subject must be a mailto or HTTPS URI")
+		}
+		publicKey, publicErr := base64.RawURLEncoding.DecodeString(cfg.WebPush.PublicKey)
+		privateKey, privateErr := base64.RawURLEncoding.DecodeString(cfg.WebPush.PrivateKey)
+		if publicErr != nil || privateErr != nil || len(publicKey) != 65 || len(privateKey) != 32 {
+			return fmt.Errorf("webPush requires a valid VAPID key pair")
+		}
+	}
+	if len(cfg.SessionSecret) < 32 || strings.HasPrefix(cfg.SessionSecret, "replace-") {
+		return fmt.Errorf("sessionSecret must be at least 32 random characters")
+	}
+	if len(cfg.OwnerToken) < 16 || strings.HasPrefix(cfg.OwnerToken, "replace-") {
+		return fmt.Errorf("ownerToken must be random and at least 16 characters")
 	}
 	if len(cfg.Players) == 0 {
 		return fmt.Errorf("at least one player is required")
@@ -85,8 +121,8 @@ func (cfg config) validate() error {
 	ids := map[string]bool{}
 	tokens := map[string]bool{cfg.OwnerToken: true}
 	for _, player := range cfg.Players {
-		if player.ID == "" || player.Name == "" || len(player.Token) < 16 {
-			return fmt.Errorf("each player requires an id, name, and token of at least 16 characters")
+		if player.ID == "" || player.ID == "owner" || player.Name == "" || len(player.Token) < 16 || strings.HasPrefix(player.Token, "replace-") {
+			return fmt.Errorf("each player requires an id, name, and random token of at least 16 characters")
 		}
 		if ids[player.ID] {
 			return fmt.Errorf("duplicate player id %q", player.ID)

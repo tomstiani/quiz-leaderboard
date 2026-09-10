@@ -22,15 +22,22 @@ type visionClient struct {
 	model  string
 	apiKey string
 	http   *http.Client
+	slots  chan struct{}
 }
 
 func newVisionClient(cfg serviceConfig) visionClient {
-	return visionClient{url: cfg.URL, model: cfg.Model, apiKey: cfg.APIKey, http: &http.Client{Timeout: 60 * time.Second}}
+	return visionClient{url: cfg.URL, model: cfg.Model, apiKey: cfg.APIKey, http: &http.Client{Timeout: 60 * time.Second}, slots: make(chan struct{}, 2)}
 }
 
 func (client visionClient) analyze(ctx context.Context, game gameConfig, mediaType string, image []byte) (visionResult, error) {
 	if client.url == "" || client.model == "" || client.apiKey == "" {
 		return visionResult{}, fmt.Errorf("vision service is not configured")
+	}
+	select {
+	case client.slots <- struct{}{}:
+		defer func() { <-client.slots }()
+	case <-ctx.Done():
+		return visionResult{}, ctx.Err()
 	}
 	prompt := fmt.Sprintf(`Analyze this screenshot from %s. It is valid only if it clearly shows the completed final results page for that game. Extract only the final total score, not a round score, percentile, rank, timer, date, or other number. For Krillion, return the total in points; if only depth in metres is displayed, divide it by 10. If the screenshot is valid but the total cannot be read, return a null score. Give a short reason when invalid.`, game.Name)
 	requestBody := map[string]any{
