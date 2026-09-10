@@ -24,6 +24,7 @@ Let configured players and the owner sign in, remain signed in until logout, and
 - [x] **UI-004:** Add logout and an owner entry point.
 - [x] **UI-005:** Apply the Altermind design system from `web/DESIGN.md`.
 - [x] **AUTH-007:** Test valid login, invalid login, logout, route protection, and Oslo date handling.
+- [x] **AUTH-008:** Cover player login, session restoration, dashboard links, logout, invalid tokens, and owner login with Playwright.
 
 ## Acceptance criteria
 
@@ -43,6 +44,7 @@ None.
 - `go test -count=1 ./...`
 - `go vet ./...`
 - `cd web && pnpm test && pnpm typecheck && pnpm build`
+- `cd web && pnpm e2e` (3 Chromium flow tests)
 - Container smoke test covered login and the authenticated dashboard API.
 
 ## Deferred

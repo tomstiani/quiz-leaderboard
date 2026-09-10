@@ -35,9 +35,12 @@ Open <http://localhost:5173>. Vite proxies `/api` requests to Go on port 8080.
 
 ## Checks
 
+Install the Playwright browser once, then run all checks:
+
 ```sh
-go test ./...
-cd web && pnpm typecheck && pnpm build
+cd web && pnpm exec playwright install chromium
+cd .. && go test ./...
+cd web && pnpm test && pnpm typecheck && pnpm build && pnpm e2e
 ```
 
 ## Production build

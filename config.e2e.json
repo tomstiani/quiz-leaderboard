@@ -1,0 +1,36 @@
+{
+  "address": "127.0.0.1:18080",
+  "dataDir": ".e2e-data",
+  "webDir": "web/dist",
+  "sessionSecret": "e2e-session-secret-32-characters-long",
+  "secureCookies": false,
+  "ownerToken": "e2e-owner-token-123456",
+  "players": [
+    {
+      "id": "alice",
+      "name": "Alice",
+      "token": "e2e-alice-token-123456"
+    },
+    {
+      "id": "bob",
+      "name": "Bob",
+      "token": "e2e-bob-token-12345678"
+    }
+  ],
+  "games": [
+    {
+      "id": "geopolitix",
+      "name": "Geopolitix",
+      "url": "https://geopolitix.live/",
+      "maxScore": 0
+    },
+    {
+      "id": "krillion",
+      "name": "Krillion",
+      "url": "https://krillion.io/",
+      "maxScore": 700
+    }
+  ],
+  "vision": { "url": "", "model": "", "apiKey": "" },
+  "ntfy": { "url": "", "topic": "", "token": "" }
+}

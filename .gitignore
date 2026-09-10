@@ -6,3 +6,6 @@ web/node_modules/
 .DS_Store
 
 *.tsbuildinfo
+.e2e-data/
+web/playwright-report/
+web/test-results/
