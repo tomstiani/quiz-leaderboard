@@ -1,0 +1,8 @@
+.git
+config.json
+data
+web/dist
+web/node_modules
+README.md
+docs
+spec
