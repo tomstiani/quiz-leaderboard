@@ -74,6 +74,9 @@ func TestPlayerAuthenticationAndDashboard(t *testing.T) {
 	if response := request(t, handler, http.MethodGet, "/api/dashboard", nil, nil); response.Code != http.StatusUnauthorized {
 		t.Fatalf("unauthenticated dashboard returned %d", response.Code)
 	}
+	if response := request(t, handler, http.MethodGet, "/api/events", nil, nil); response.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated event stream returned %d", response.Code)
+	}
 	cookie, user := login(t, handler, "alice-token-1234567890")
 	if user.Role != "player" || user.PlayerID != "alice" || user.Name != "Alice" {
 		t.Fatalf("unexpected user: %+v", user)
@@ -93,8 +96,8 @@ func TestPlayerAuthenticationAndDashboard(t *testing.T) {
 	if dashboard.Date != "2026-03-29" || len(dashboard.Games) != 2 || len(dashboard.Players) != 2 {
 		t.Fatalf("unexpected dashboard: %+v", dashboard)
 	}
-	if dashboard.Games[0].URL != "https://geopolitix.live/" || dashboard.Players[0].Name != "Alice" {
-		t.Fatalf("configuration order was not preserved: %+v", dashboard)
+	if dashboard.Games[0].URL != "https://geopolitix.live/" || dashboard.Players[0].Name != "Alice" || dashboard.Players[0].Rank != 1 || dashboard.Players[1].Rank != 1 {
+		t.Fatalf("configuration order or shared rank was not preserved: %+v", dashboard)
 	}
 
 	response = request(t, handler, http.MethodPost, "/api/logout", nil, cookie)

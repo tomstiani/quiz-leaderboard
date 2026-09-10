@@ -183,46 +183,48 @@ func replaceDraft(db *sql.DB, id, playerID, gameID, day, filename, mediaType str
 	return oldFilename, nil
 }
 
-func confirmDraft(w http.ResponseWriter, r *http.Request, cfg config, db *sql.DB, user principal, day string) {
+func confirmDraft(w http.ResponseWriter, r *http.Request, cfg config, db *sql.DB, user principal, day string) bool {
 	if user.Role != "player" {
 		http.Error(w, "players only", http.StatusForbidden)
-		return
+		return false
 	}
 	var request struct {
 		Score *int `json:"score"`
 	}
 	if readJSON(w, r, &request) != nil || request.Score == nil {
 		http.Error(w, "score is required", http.StatusBadRequest)
-		return
+		return false
 	}
 	var gameID string
 	err := db.QueryRow(`SELECT game_id FROM submissions
 		WHERE id = ? AND player_id = ? AND game_day = ? AND status = 'draft'`, r.PathValue("id"), user.PlayerID, day).Scan(&gameID)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "draft not found", http.StatusNotFound)
-		return
+		return false
 	}
 	if err != nil {
 		http.Error(w, "could not read draft", http.StatusInternalServerError)
-		return
+		return false
 	}
 	game, ok := findGame(cfg, gameID)
-	if !ok || *request.Score < 0 || (game.MaxScore > 0 && float64(*request.Score) > game.MaxScore) {
+	if !ok || *request.Score < 0 || float64(*request.Score) > game.MaxScore {
 		http.Error(w, "score is outside the valid range", http.StatusUnprocessableEntity)
-		return
+		return false
 	}
-	result, err := db.Exec(`UPDATE submissions SET status = 'confirmed', raw_score = ?, confirmed_at = CURRENT_TIMESTAMP
-		WHERE id = ? AND player_id = ? AND game_day = ? AND status = 'draft'`, *request.Score, r.PathValue("id"), user.PlayerID, day)
+	normalized := normalizeScore(*request.Score, game.MaxScore)
+	result, err := db.Exec(`UPDATE submissions SET status = 'confirmed', raw_score = ?, normalized_score = ?, confirmed_at = CURRENT_TIMESTAMP
+		WHERE id = ? AND player_id = ? AND game_day = ? AND status = 'draft'`, *request.Score, normalized, r.PathValue("id"), user.PlayerID, day)
 	if err != nil {
 		http.Error(w, "could not confirm submission", http.StatusInternalServerError)
-		return
+		return false
 	}
 	changed, _ := result.RowsAffected()
 	if changed != 1 {
 		http.Error(w, "draft not found", http.StatusNotFound)
-		return
+		return false
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"id": r.PathValue("id"), "score": *request.Score})
+	writeJSON(w, http.StatusOK, map[string]any{"id": r.PathValue("id"), "score": *request.Score, "normalizedScore": normalized})
+	return true
 }
 
 func serveScreenshot(w http.ResponseWriter, r *http.Request, cfg config, db *sql.DB, user principal) {

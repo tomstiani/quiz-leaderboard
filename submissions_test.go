@@ -41,7 +41,7 @@ func fakeVision(t *testing.T, result visionResult, calls *atomic.Int32) *httptes
 	return server
 }
 
-func submissionHandler(t *testing.T, result visionResult, calls *atomic.Int32) (http.Handler, *sql.DB, config) {
+func submissionHandler(t *testing.T, result visionResult, calls *atomic.Int32) (http.Handler, *sql.DB, config, *eventBroker) {
 	t.Helper()
 	server := fakeVision(t, result, calls)
 	cfg := testConfig()
@@ -52,11 +52,12 @@ func submissionHandler(t *testing.T, result visionResult, calls *atomic.Int32) (
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	handler, err := newHandler(cfg, db, func() time.Time { return time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC) })
+	broker := newEventBroker()
+	handler, err := newHandler(cfg, db, func() time.Time { return time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC) }, broker)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return handler, db, cfg
+	return handler, db, cfg, broker
 }
 
 func upload(t *testing.T, handler http.Handler, cookie *http.Cookie, gameID, filename string, content []byte) *httptest.ResponseRecorder {
@@ -96,7 +97,7 @@ func confirm(t *testing.T, handler http.Handler, cookie *http.Cookie, id string,
 func TestSubmissionFlowAndPrivateScreenshots(t *testing.T) {
 	var calls atomic.Int32
 	score := 321
-	handler, _, cfg := submissionHandler(t, visionResult{Valid: true, Score: &score}, &calls)
+	handler, _, cfg, broker := submissionHandler(t, visionResult{Valid: true, Score: &score}, &calls)
 	alice, _ := login(t, handler, cfg.Players[0].Token)
 	bob, _ := login(t, handler, cfg.Players[1].Token)
 
@@ -122,8 +123,15 @@ func TestSubmissionFlowAndPrivateScreenshots(t *testing.T) {
 	if response := confirm(t, handler, bob, draft.ID, score); response.Code != http.StatusNotFound {
 		t.Fatalf("other player confirmation returned %d", response.Code)
 	}
+	events, unsubscribe := broker.subscribe()
+	defer unsubscribe()
 	if response := confirm(t, handler, alice, draft.ID, score); response.Code != http.StatusOK {
 		t.Fatalf("confirmation returned %d: %s", response.Code, response.Body.String())
+	}
+	select {
+	case <-events:
+	default:
+		t.Fatal("confirmation did not publish leaderboard event")
 	}
 	if response := screenshotRequest(handler, bob, draft.ID); response.Code != http.StatusOK || !bytes.Equal(response.Body.Bytes(), testPNG) {
 		t.Fatalf("confirmed screenshot returned %d or wrong bytes", response.Code)
@@ -140,8 +148,12 @@ func TestSubmissionFlowAndPrivateScreenshots(t *testing.T) {
 	if err := json.NewDecoder(dashboard.Body).Decode(&result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Players[0].Completed != 1 || len(result.Players[0].Scores) != 1 || result.Players[0].Scores[0].RawScore != score {
-		t.Fatalf("dashboard missing score: %+v", result.Players[0])
+	normalized := normalizeScore(score, 900)
+	if result.Players[0].Rank != 1 || result.Players[0].Completed != 1 || result.Players[0].CombinedScore != normalized || len(result.Players[0].Scores) != 1 || result.Players[0].Scores[0].RawScore != score || result.Players[0].Scores[0].NormalizedScore != normalized {
+		t.Fatalf("dashboard missing normalized score: %+v", result.Players[0])
+	}
+	if result.Players[1].Rank != 2 || result.Players[1].CombinedScore != 0 {
+		t.Fatalf("unfinished player ranked incorrectly: %+v", result.Players[1])
 	}
 }
 
@@ -158,7 +170,7 @@ func screenshotRequest(handler http.Handler, cookie *http.Cookie, id string) *ht
 
 func TestUnreadableScoreCanBeEnteredManually(t *testing.T) {
 	var calls atomic.Int32
-	handler, _, cfg := submissionHandler(t, visionResult{Valid: true, Score: nil}, &calls)
+	handler, _, cfg, _ := submissionHandler(t, visionResult{Valid: true, Score: nil}, &calls)
 	alice, _ := login(t, handler, cfg.Players[0].Token)
 	response := upload(t, handler, alice, "geopolitix", "score.png", testPNG)
 	var draft draftResponse
@@ -172,7 +184,7 @@ func TestUnreadableScoreCanBeEnteredManually(t *testing.T) {
 
 func TestUploadValidationAndModelRejection(t *testing.T) {
 	var calls atomic.Int32
-	handler, db, cfg := submissionHandler(t, visionResult{Valid: false, Reason: "not final results"}, &calls)
+	handler, db, cfg, _ := submissionHandler(t, visionResult{Valid: false, Reason: "not final results"}, &calls)
 	alice, _ := login(t, handler, cfg.Players[0].Token)
 	owner, _ := login(t, handler, cfg.OwnerToken)
 
@@ -211,7 +223,7 @@ func TestUploadValidationAndModelRejection(t *testing.T) {
 func TestScoreValidationAndDraftReplacement(t *testing.T) {
 	var calls atomic.Int32
 	score := 7000
-	handler, db, cfg := submissionHandler(t, visionResult{Valid: true, Score: &score}, &calls)
+	handler, db, cfg, _ := submissionHandler(t, visionResult{Valid: true, Score: &score}, &calls)
 	alice, _ := login(t, handler, cfg.Players[0].Token)
 
 	first := upload(t, handler, alice, "krillion", "first.png", testPNG)
@@ -239,15 +251,16 @@ func TestScoreValidationAndDraftReplacement(t *testing.T) {
 		t.Fatalf("second confirmation returned %d", response.Code)
 	}
 	var status string
-	if err := db.QueryRow("SELECT status FROM submissions WHERE id = ?", draft.ID).Scan(&status); err != nil || status != "confirmed" {
-		t.Fatalf("submission status=%q err=%v", status, err)
+	var normalized float64
+	if err := db.QueryRow("SELECT status, normalized_score FROM submissions WHERE id = ?", draft.ID).Scan(&status, &normalized); err != nil || status != "confirmed" || normalized != 100 {
+		t.Fatalf("submission status=%q normalized=%v err=%v", status, normalized, err)
 	}
 }
 
 func TestDraftCleanup(t *testing.T) {
 	var calls atomic.Int32
 	score := 1
-	_, db, cfg := submissionHandler(t, visionResult{Valid: true, Score: &score}, &calls)
+	_, db, cfg, _ := submissionHandler(t, visionResult{Valid: true, Score: &score}, &calls)
 	path := filepath.Join(cfg.DataDir, "screenshots", "old.png")
 	if err := os.WriteFile(path, testPNG, 0o600); err != nil {
 		t.Fatal(err)

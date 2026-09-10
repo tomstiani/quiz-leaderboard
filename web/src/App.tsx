@@ -9,6 +9,7 @@ type Viewer = {
 type Score = {
   gameId: string
   rawScore: number
+  normalizedScore: number
   screenshotUrl: string
 }
 
@@ -26,6 +27,7 @@ type Dashboard = {
   players: Array<{
     id: string
     name: string
+    rank: number
     completed: number
     combinedScore: number
     scores: Score[]
@@ -55,6 +57,17 @@ export function App() {
       })
       .catch(() => setError('Could not load today’s leaderboard.'))
   }, [viewer, refresh])
+
+  useEffect(() => {
+    if (!viewer || typeof EventSource === 'undefined') return
+    const events = new EventSource('/api/events')
+    const update = () => setRefresh((value) => value + 1)
+    events.addEventListener('leaderboard', update)
+    return () => {
+      events.removeEventListener('leaderboard', update)
+      events.close()
+    }
+  }, [viewer])
 
   if (viewer === undefined) return <main><p>Loading…</p></main>
   if (!viewer) return <Login onLogin={setViewer} />
@@ -98,7 +111,7 @@ export function App() {
                       <a href={game.url} target="_blank" rel="noreferrer">Play game →</a>
                     </div>
                     {score ? (
-                      <p>Submitted: <b>{score.rawScore}</b> · <a href={score.screenshotUrl} target="_blank" rel="noreferrer">View screenshot</a></p>
+                      <p>Submitted: <b>{score.rawScore}</b> · {formatScore(score.normalizedScore)} points · <a href={score.screenshotUrl} target="_blank" rel="noreferrer">View screenshot</a></p>
                     ) : viewer.role === 'player' ? (
                       <SubmissionForm game={game} onConfirmed={() => setRefresh((value) => value + 1)} />
                     ) : <p>Not submitted</p>}
@@ -114,6 +127,7 @@ export function App() {
               <table>
                 <thead>
                   <tr>
+                    <th>Rank</th>
                     <th>Player</th>
                     <th>Completed</th>
                     {dashboard.games.map((game) => <th key={game.id}>{game.name}</th>)}
@@ -123,13 +137,14 @@ export function App() {
                 <tbody>
                   {dashboard.players.map((player) => (
                     <tr key={player.id}>
+                      <td>#{player.rank}</td>
                       <th>{player.name}</th>
                       <td>{player.completed}/{dashboard.games.length}</td>
                       {dashboard.games.map((game) => {
                         const score = player.scores.find((item) => item.gameId === game.id)
-                        return <td key={game.id}>{score ? <a href={score.screenshotUrl} target="_blank" rel="noreferrer">{score.rawScore}</a> : '—'}</td>
+                        return <td key={game.id}>{score ? <a href={score.screenshotUrl} target="_blank" rel="noreferrer">{score.rawScore} <small>({formatScore(score.normalizedScore)})</small></a> : '—'}</td>
                       })}
-                      <td>{player.combinedScore}</td>
+                      <td>{formatScore(player.combinedScore)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -140,6 +155,10 @@ export function App() {
       )}
     </main>
   )
+}
+
+function formatScore(score: number) {
+  return score.toLocaleString(undefined, { maximumFractionDigits: 1 })
 }
 
 function SubmissionForm({ game, onConfirmed }: { game: Game; onConfirmed: () => void }) {

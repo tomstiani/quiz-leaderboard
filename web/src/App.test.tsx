@@ -14,8 +14,8 @@ const dashboard = {
     { id: 'krillion', name: 'Krillion', url: 'https://krillion.io/', maxScore: 7000 },
   ],
   players: [
-    { id: 'alice', name: 'Alice', completed: 0, combinedScore: 0, scores: [] },
-    { id: 'bob', name: 'Bob', completed: 0, combinedScore: 0, scores: [] },
+    { id: 'alice', name: 'Alice', rank: 1, completed: 0, combinedScore: 0, scores: [] },
+    { id: 'bob', name: 'Bob', rank: 1, completed: 0, combinedScore: 0, scores: [] },
   ],
 }
 
@@ -54,7 +54,7 @@ describe('App', () => {
     const confirmedDashboard = {
       ...dashboard,
       players: [
-        { ...dashboard.players[0], completed: 1, scores: [{ gameId: 'geopolitix', rawScore: 300, screenshotUrl: '/api/screenshots/draft-1' }] },
+        { ...dashboard.players[0], completed: 1, combinedScore: 33.333333, scores: [{ gameId: 'geopolitix', rawScore: 300, normalizedScore: 33.333333, screenshotUrl: '/api/screenshots/draft-1' }] },
         dashboard.players[1],
       ],
     }
@@ -111,6 +111,28 @@ describe('App', () => {
 
     expect((await screen.findByRole('alert')).textContent).toBe('That token is not valid.')
     expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeTruthy()
+  })
+
+  it('refreshes the dashboard after a leaderboard event', async () => {
+    let listener: (() => void) | undefined
+    class FakeEventSource {
+      addEventListener(_name: string, callback: EventListenerOrEventListenerObject) {
+        listener = callback as () => void
+      }
+      removeEventListener() {}
+      close() {}
+    }
+    vi.stubGlobal('EventSource', FakeEventSource)
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      if (input.toString() === '/api/session') return Response.json(player)
+      return Response.json(dashboard)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Scores' })
+    listener?.()
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => input.toString() === '/api/dashboard')).toHaveLength(2))
   })
 
   it('recovers from a failed session check', async () => {

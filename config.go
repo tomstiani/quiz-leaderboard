@@ -104,8 +104,8 @@ func (cfg config) validate() error {
 		if game.ID == "" || game.Name == "" || err != nil || parsed.Scheme != "https" || parsed.Host == "" {
 			return fmt.Errorf("game %q requires an id, name, and HTTPS URL", game.ID)
 		}
-		if game.MaxScore < 0 {
-			return fmt.Errorf("game %q maxScore cannot be negative", game.ID)
+		if game.MaxScore <= 0 {
+			return fmt.Errorf("game %q maxScore must be positive", game.ID)
 		}
 		if ids[game.ID] {
 			return fmt.Errorf("duplicate game id %q", game.ID)

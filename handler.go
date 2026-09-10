@@ -25,20 +25,22 @@ type dashboardGame struct {
 }
 
 type dashboardScore struct {
-	GameID        string `json:"gameId"`
-	RawScore      int    `json:"rawScore"`
-	ScreenshotURL string `json:"screenshotUrl"`
+	GameID          string  `json:"gameId"`
+	RawScore        int     `json:"rawScore"`
+	NormalizedScore float64 `json:"normalizedScore"`
+	ScreenshotURL   string  `json:"screenshotUrl"`
 }
 
 type dashboardPlayer struct {
 	ID            string           `json:"id"`
 	Name          string           `json:"name"`
+	Rank          int              `json:"rank"`
 	Completed     int              `json:"completed"`
-	CombinedScore int              `json:"combinedScore"`
+	CombinedScore float64          `json:"combinedScore"`
 	Scores        []dashboardScore `json:"scores"`
 }
 
-func newHandler(cfg config, db *sql.DB, now func() time.Time) (http.Handler, error) {
+func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...*eventBroker) (http.Handler, error) {
 	oslo, err := time.LoadLocation("Europe/Oslo")
 	if err != nil {
 		return nil, err
@@ -47,6 +49,13 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time) (http.Handler, err
 		now = time.Now
 	}
 	vision := newVisionClient(cfg.Vision)
+	broker := newEventBroker()
+	if len(providedBroker) > 0 {
+		broker = providedBroker[0]
+	}
+	if err := backfillNormalizedScores(db, cfg); err != nil {
+		return nil, err
+	}
 	day := func() string { return now().In(oslo).Format(time.DateOnly) }
 
 	mux := http.NewServeMux()
@@ -93,7 +102,7 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time) (http.Handler, err
 			playerIndexes[player.ID] = len(response.Players)
 			response.Players = append(response.Players, dashboardPlayer{ID: player.ID, Name: player.Name, Scores: []dashboardScore{}})
 		}
-		rows, err := db.Query(`SELECT id, player_id, game_id, raw_score FROM submissions
+		rows, err := db.Query(`SELECT id, player_id, game_id, raw_score, normalized_score FROM submissions
 			WHERE game_day = ? AND status = 'confirmed'`, day())
 		if err != nil {
 			http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
@@ -103,26 +112,34 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time) (http.Handler, err
 		for rows.Next() {
 			var id, playerID, gameID string
 			var rawScore int
-			if err := rows.Scan(&id, &playerID, &gameID, &rawScore); err != nil {
+			var normalizedScore sql.NullFloat64
+			if err := rows.Scan(&id, &playerID, &gameID, &rawScore, &normalizedScore); err != nil {
 				http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
 				return
 			}
-			if index, ok := playerIndexes[playerID]; ok {
-				response.Players[index].Scores = append(response.Players[index].Scores, dashboardScore{GameID: gameID, RawScore: rawScore, ScreenshotURL: "/api/screenshots/" + id})
+			if index, ok := playerIndexes[playerID]; ok && normalizedScore.Valid {
+				response.Players[index].Scores = append(response.Players[index].Scores, dashboardScore{GameID: gameID, RawScore: rawScore, NormalizedScore: normalizedScore.Float64, ScreenshotURL: "/api/screenshots/" + id})
 				response.Players[index].Completed++
+				response.Players[index].CombinedScore += normalizedScore.Float64
 			}
 		}
 		if err := rows.Err(); err != nil {
 			http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
 			return
 		}
+		rankPlayers(response.Players)
 		writeJSON(w, http.StatusOK, response)
 	}))
 	mux.HandleFunc("POST /api/games/{gameID}/draft", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
 		createDraft(w, r, cfg, db, vision, user, day())
 	}))
 	mux.HandleFunc("POST /api/drafts/{id}/confirm", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
-		confirmDraft(w, r, cfg, db, user, day())
+		if confirmDraft(w, r, cfg, db, user, day()) {
+			broker.publish()
+		}
+	}))
+	mux.HandleFunc("GET /api/events", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, _ principal) {
+		serveEvents(w, r, broker)
 	}))
 	mux.HandleFunc("GET /api/screenshots/{id}", authenticated(cfg, func(w http.ResponseWriter, r *http.Request, user principal) {
 		serveScreenshot(w, r, cfg, db, user)
