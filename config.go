@@ -12,6 +12,7 @@ type config struct {
 	DataDir       string         `json:"dataDir"`
 	WebDir        string         `json:"webDir"`
 	SessionSecret string         `json:"sessionSecret"`
+	SecureCookies bool           `json:"secureCookies"`
 	OwnerToken    string         `json:"ownerToken"`
 	Players       []playerConfig `json:"players"`
 	Games         []gameConfig   `json:"games"`

@@ -16,7 +16,7 @@ The product requirements live in [`../docs/product.md`](../docs/product.md). Pro
 | Order | Milestone | Status | Depends on |
 |---|---|---|---|
 | 1 | [Project foundation](01-project-foundation.md) | `complete` | — |
-| 2 | [Authentication and dashboard](02-authentication-dashboard.md) | `not_started` | 1 |
+| 2 | [Authentication and dashboard](02-authentication-dashboard.md) | `complete` | 1 |
 | 3 | [Screenshot submissions](03-screenshot-submissions.md) | `not_started` | 2 |
 | 4 | [Scoring and live leaderboard](04-scoring-live-leaderboard.md) | `not_started` | 3 |
 | 5 | [Owner corrections and notifications](05-owner-notifications.md) | `not_started` | 4 |

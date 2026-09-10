@@ -3,6 +3,7 @@
   "dataDir": "data",
   "webDir": "web/dist",
   "sessionSecret": "replace-with-at-least-32-random-characters",
+  "secureCookies": false,
   "ownerToken": "replace-owner-token",
   "players": [
     {

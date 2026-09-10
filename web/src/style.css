@@ -5,34 +5,121 @@
   font-synthesis: none;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input { font: inherit; }
 
 main {
-  width: min(42rem, calc(100% - 2rem));
-  margin: 18vh auto;
+  width: min(64rem, calc(100% - 2rem));
+  margin: 4rem auto;
+}
+
+header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 2rem;
 }
 
 h1 {
   margin: 0.25rem 0;
-  font-size: clamp(2rem, 8vw, 4rem);
+  font-size: clamp(2rem, 7vw, 3.75rem);
   line-height: 1;
 }
 
-p {
-  color: #475467;
-  font-size: 1.125rem;
-}
+h2 { margin: 2.5rem 0 1rem; }
+p { color: #475467; }
 
 .eyebrow {
+  margin-bottom: 0.5rem;
   color: #175cd3;
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.games {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+
+.game {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  color: inherit;
+  background: white;
+  border: 1px solid #d0d5dd;
+  border-radius: 0.75rem;
+  text-decoration: none;
+}
+
+.game:hover { border-color: #175cd3; }
+.game span { color: #175cd3; }
+
+.table-wrap {
+  overflow-x: auto;
+  background: white;
+  border: 1px solid #d0d5dd;
+  border-radius: 0.75rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 1rem;
+  border-bottom: 1px solid #eaecf0;
+  text-align: left;
+}
+
+tr:last-child th, tr:last-child td { border-bottom: 0; }
+
+button {
+  padding: 0.75rem 1rem;
+  color: white;
+  background: #175cd3;
+  border: 1px solid #175cd3;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+button:disabled { opacity: 0.6; cursor: wait; }
+button.secondary { color: #344054; background: white; border-color: #d0d5dd; }
+
+.login {
+  display: grid;
+  min-height: calc(100vh - 8rem);
+  place-items: center;
+}
+
+form {
+  width: min(24rem, 100%);
+  padding: 2rem;
+  background: white;
+  border: 1px solid #d0d5dd;
+  border-radius: 1rem;
+  box-shadow: 0 1rem 3rem rgb(16 24 40 / 8%);
+}
+
+label { display: block; margin: 1.5rem 0 0.5rem; font-weight: 600; }
+input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #98a2b3;
+  border-radius: 0.5rem;
+}
+form button { width: 100%; margin-top: 1rem; }
+.error { color: #b42318; }
+
+@media (max-width: 36rem) {
+  main { margin: 2rem auto; }
+  header { align-items: stretch; flex-direction: column; gap: 0.5rem; }
+  header button { align-self: start; }
+  th, td { padding: 0.75rem; }
 }
