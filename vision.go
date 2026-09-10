@@ -32,7 +32,7 @@ func (client visionClient) analyze(ctx context.Context, game gameConfig, mediaTy
 	if client.url == "" || client.model == "" || client.apiKey == "" {
 		return visionResult{}, fmt.Errorf("vision service is not configured")
 	}
-	prompt := fmt.Sprintf(`Analyze this screenshot from %s. It is valid only if it clearly shows the completed final results page for that game. Extract only the final total score, not a round score, percentile, rank, timer, date, or other number. For Krillion, return the displayed total depth in metres as an integer. If the screenshot is valid but the total cannot be read, return a null score. Give a short reason when invalid.`, game.Name)
+	prompt := fmt.Sprintf(`Analyze this screenshot from %s. It is valid only if it clearly shows the completed final results page for that game. Extract only the final total score, not a round score, percentile, rank, timer, date, or other number. For Krillion, return the total in points; if only depth in metres is displayed, divide it by 10. If the screenshot is valid but the total cannot be read, return a null score. Give a short reason when invalid.`, game.Name)
 	requestBody := map[string]any{
 		"model": client.model,
 		"messages": []any{map[string]any{

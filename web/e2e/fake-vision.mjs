@@ -9,7 +9,7 @@ const server = http.createServer((request, response) => {
   request.on('data', (chunk) => { body += chunk })
   request.on('end', () => {
     const prompt = JSON.parse(body).messages[0].content[0].text
-    const score = prompt.startsWith('Analyze this screenshot from Krillion.') ? 4500 : 321
+    const score = prompt.startsWith('Analyze this screenshot from Krillion.') ? 450 : 321
     const content = JSON.stringify({ valid: true, score, reason: '' })
     response.setHeader('Content-Type', 'application/json')
     response.end(JSON.stringify({ choices: [{ message: { content } }] }))

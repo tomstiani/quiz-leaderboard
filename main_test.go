@@ -9,7 +9,7 @@ func TestConfigRejectsDuplicateTokens(t *testing.T) {
 		SessionSecret: "12345678901234567890123456789012",
 		OwnerToken:    "1234567890123456",
 		Players:       []playerConfig{{ID: "alice", Name: "Alice", Token: "1234567890123456"}},
-		Games:         []gameConfig{{ID: "krillion", Name: "Krillion", URL: "https://krillion.io/", MaxScore: 7000}},
+		Games:         []gameConfig{{ID: "krillion", Name: "Krillion", URL: "https://krillion.io/", MaxScore: 700}},
 	}
 	if err := cfg.validate(); err == nil {
 		t.Fatal("expected duplicate token validation error")

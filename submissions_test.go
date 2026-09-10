@@ -222,7 +222,7 @@ func TestUploadValidationAndModelRejection(t *testing.T) {
 
 func TestScoreValidationAndDraftReplacement(t *testing.T) {
 	var calls atomic.Int32
-	score := 7000
+	score := 700
 	handler, db, cfg, _ := submissionHandler(t, visionResult{Valid: true, Score: &score}, &calls)
 	alice, _ := login(t, handler, cfg.Players[0].Token)
 
@@ -239,15 +239,15 @@ func TestScoreValidationAndDraftReplacement(t *testing.T) {
 		t.Fatalf("old draft file still exists: %v", err)
 	}
 
-	for _, value := range []any{nil, -1, 7001} {
+	for _, value := range []any{nil, -1, 701} {
 		if response := confirm(t, handler, alice, draft.ID, value); response.Code != map[bool]int{true: http.StatusBadRequest, false: http.StatusUnprocessableEntity}[value == nil] {
 			t.Fatalf("score %v returned %d", value, response.Code)
 		}
 	}
-	if response := confirm(t, handler, alice, draft.ID, 7000); response.Code != http.StatusOK {
+	if response := confirm(t, handler, alice, draft.ID, 700); response.Code != http.StatusOK {
 		t.Fatalf("valid score returned %d: %s", response.Code, response.Body.String())
 	}
-	if response := confirm(t, handler, alice, draft.ID, 7000); response.Code != http.StatusNotFound {
+	if response := confirm(t, handler, alice, draft.ID, 700); response.Code != http.StatusNotFound {
 		t.Fatalf("second confirmation returned %d", response.Code)
 	}
 	var status string

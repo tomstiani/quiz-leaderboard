@@ -11,7 +11,7 @@ const dashboard = {
   viewer: player,
   games: [
     { id: 'geopolitix', name: 'Geopolitix', url: 'https://geopolitix.live/', maxScore: 900 },
-    { id: 'krillion', name: 'Krillion', url: 'https://krillion.io/', maxScore: 7000 },
+    { id: 'krillion', name: 'Krillion', url: 'https://krillion.io/', maxScore: 700 },
   ],
   players: [
     { id: 'alice', name: 'Alice', rank: 1, completed: 0, combinedScore: 0, scores: [] },

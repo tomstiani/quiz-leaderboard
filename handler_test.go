@@ -19,7 +19,7 @@ func testConfig() config {
 		},
 		Games: []gameConfig{
 			{ID: "geopolitix", Name: "Geopolitix", URL: "https://geopolitix.live/", MaxScore: 900},
-			{ID: "krillion", Name: "Krillion", URL: "https://krillion.io/", MaxScore: 7000},
+			{ID: "krillion", Name: "Krillion", URL: "https://krillion.io/", MaxScore: 700},
 		},
 	}
 }

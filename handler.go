@@ -53,7 +53,7 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 	if len(providedBroker) > 0 {
 		broker = providedBroker[0]
 	}
-	if err := backfillNormalizedScores(db, cfg); err != nil {
+	if err := recalculateNormalizedScores(db, cfg); err != nil {
 		return nil, err
 	}
 	day := func() string { return now().In(oslo).Format(time.DateOnly) }

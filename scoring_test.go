@@ -22,7 +22,7 @@ func TestNormalizeAndRankPlayers(t *testing.T) {
 	}
 }
 
-func TestBackfillNormalizedScores(t *testing.T) {
+func TestRecalculateNormalizedScores(t *testing.T) {
 	db, err := openDatabase(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -33,7 +33,10 @@ func TestBackfillNormalizedScores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := backfillNormalizedScores(db, testConfig()); err != nil {
+	if _, err := db.Exec("UPDATE submissions SET normalized_score = 99 WHERE id = 'score'"); err != nil {
+		t.Fatal(err)
+	}
+	if err := recalculateNormalizedScores(db, testConfig()); err != nil {
 		t.Fatal(err)
 	}
 	var normalized float64

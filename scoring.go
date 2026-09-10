@@ -10,9 +10,9 @@ func normalizeScore(raw int, maximum float64) float64 {
 	return float64(raw) / maximum * 100
 }
 
-func backfillNormalizedScores(db *sql.DB, cfg config) error {
+func recalculateNormalizedScores(db *sql.DB, cfg config) error {
 	rows, err := db.Query(`SELECT id, game_id, raw_score FROM submissions
-		WHERE status = 'confirmed' AND normalized_score IS NULL`)
+		WHERE status = 'confirmed'`)
 	if err != nil {
 		return fmt.Errorf("find scores to normalize: %w", err)
 	}

@@ -102,7 +102,7 @@ Each game opens on its external website:
 
 ### Krillion
 
-Krillion has a maximum displayed result of 7,000 metres. Store the displayed depth as its raw score.
+Krillion has a maximum score of 700 points. The game can also display this as 7,000 metres of depth. Store points as the raw score.
 
 Game: [Krillion](https://krillion.io/)
 
