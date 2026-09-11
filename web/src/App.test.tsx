@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -81,15 +81,13 @@ describe('App', () => {
     render(<App />)
 
     const file = new File([new Uint8Array([137, 80, 78, 71])], 'score.png', { type: 'image/png' })
-    await user.upload((await screen.findAllByLabelText('Result screenshot'))[0], file)
-    fireEvent.submit(screen.getAllByRole('button', { name: 'Analyze screenshot' })[0].closest('form')!)
+    await user.upload((await screen.findAllByLabelText('Choose result screenshot'))[0], file)
     await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => input.toString() === '/api/games/geopolitix/draft')).toBe(true))
 
     let scoreInput = await screen.findByLabelText('Total score') as HTMLInputElement
     expect(scoreInput.value).toBe('321')
     await user.click(screen.getByRole('button', { name: 'Choose another' }))
-    await user.upload(screen.getAllByLabelText('Result screenshot')[0], file)
-    fireEvent.submit(screen.getAllByRole('button', { name: 'Analyze screenshot' })[0].closest('form')!)
+    await user.upload(screen.getByLabelText('Choose another screenshot'), file)
     scoreInput = await screen.findByLabelText('Total score') as HTMLInputElement
     await user.clear(scoreInput)
     await user.type(scoreInput, '300')

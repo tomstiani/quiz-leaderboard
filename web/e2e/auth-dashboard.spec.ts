@@ -69,12 +69,11 @@ test('submission updates another player live and shares its screenshot', async (
   await eventStream
 
   const game = page.locator('article').filter({ hasText: 'Geopolitix' })
-  await game.getByLabel('Result screenshot').setInputFiles({
+  await game.getByLabel('Choose result screenshot').setInputFiles({
     name: 'score.png',
     mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
   })
-  await game.getByRole('button', { name: 'Analyze screenshot' }).click()
 
   await expect(game.getByLabel('Total score')).toHaveValue('321')
   await game.getByLabel('Total score').fill('300')

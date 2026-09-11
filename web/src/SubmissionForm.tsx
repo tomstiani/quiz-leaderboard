@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { styles } from './styles.stylex'
 import type { Game } from './types'
 
@@ -9,23 +9,31 @@ export function SubmissionForm({ game, onConfirmed }: { game: Game; onConfirmed:
   const [score, setScore] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const replacementInput = useRef<HTMLInputElement>(null)
   const preview = useMemo(() => file ? URL.createObjectURL(file) : '', [file])
 
   useEffect(() => () => {
     if (preview) URL.revokeObjectURL(preview)
   }, [preview])
 
-  async function analyze(event: FormEvent) {
-    event.preventDefault()
-    if (!file) return
-    if (file.size > 10 * 1024 * 1024) {
+  function chooseScreenshot(event: ChangeEvent<HTMLInputElement>) {
+    const screenshot = event.target.files?.[0]
+    event.target.value = ''
+    if (screenshot) void analyze(screenshot)
+  }
+
+  async function analyze(screenshot: File) {
+    if (screenshot.size > 10 * 1024 * 1024) {
       setError('Screenshot must be 10 MB or smaller.')
       return
     }
+    setFile(screenshot)
+    setDraftID('')
+    setScore('')
     setBusy(true)
     setError('')
     const body = new FormData()
-    body.append('screenshot', file)
+    body.append('screenshot', screenshot)
     try {
       const response = await fetch(`/api/games/${game.id}/draft`, { method: 'POST', body })
       if (!response.ok) {
@@ -71,8 +79,9 @@ export function SubmissionForm({ game, onConfirmed }: { game: Game; onConfirmed:
         <label {...stylex.props(styles.submissionLabel)} htmlFor={`score-${game.id}`}>Total score</label>
         <input id={`score-${game.id}`} type="number" min="0" max={game.maxScore || undefined} required value={score} onChange={(event) => setScore(event.target.value)} />
         {error && <p role="alert" {...stylex.props(styles.error)}>{error}</p>}
+        <input ref={replacementInput} aria-label="Choose another screenshot" type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} hidden onChange={chooseScreenshot} />
         <div {...stylex.props(styles.submissionActions)}>
-          <button type="button" {...stylex.props(styles.submissionButton)} disabled={busy} aria-busy={busy} onClick={() => { setDraftID(''); setScore(''); setFile(null) }}>Choose another</button>
+          <button type="button" {...stylex.props(styles.submissionButton)} disabled={busy} aria-busy={busy} onClick={() => replacementInput.current?.click()}>Choose another</button>
           <button type="submit" {...stylex.props(styles.submissionButton)} disabled={busy} aria-busy={busy}>{busy ? 'Confirming…' : 'Confirm score'}</button>
         </div>
       </form>
@@ -80,12 +89,13 @@ export function SubmissionForm({ game, onConfirmed }: { game: Game; onConfirmed:
   }
 
   return (
-    <form {...stylex.props(styles.submission)} onSubmit={analyze}>
-      <label {...stylex.props(styles.submissionLabel)} htmlFor={`screenshot-${game.id}`}>Result screenshot</label>
-      <input {...stylex.props(styles.fileInput)} id={`screenshot-${game.id}`} type="file" accept="image/png,image/jpeg,image/webp" required onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
-      <small {...stylex.props(styles.submissionSmall)}>Processed by a third-party vision model.</small>
+    <div {...stylex.props(styles.submission)}>
+      <small {...stylex.props(styles.submissionSmall)}>Choosing a screenshot sends it to a third-party vision model for analysis.</small>
+      {busy ? <p role="status">Analyzing…</p> : <>
+        <label {...stylex.props(styles.submissionLabel)} htmlFor={`screenshot-${game.id}`}>Choose result screenshot</label>
+        <input {...stylex.props(styles.fileInput)} id={`screenshot-${game.id}`} type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseScreenshot} />
+      </>}
       {error && <p role="alert" {...stylex.props(styles.error)}>{error}</p>}
-      <button type="submit" {...stylex.props(styles.submissionButton)} disabled={!file || busy} aria-busy={busy}>{busy ? 'Analyzing…' : 'Analyze screenshot'}</button>
-    </form>
+    </div>
   )
 }
