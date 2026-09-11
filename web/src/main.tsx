@@ -7,7 +7,9 @@ import {
   createRouter,
 } from '@tanstack/react-router'
 import { App } from './App'
-import './style.css'
+import './globals.css'
+
+if (import.meta.env.DEV) void import('virtual:stylex:runtime')
 
 const rootRoute = createRootRoute()
 const indexRoute = createRoute({
