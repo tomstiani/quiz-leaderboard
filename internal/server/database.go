@@ -1,19 +1,17 @@
-package main
+package server
 
 import (
 	"crypto/sha256"
 	"database/sql"
-	"embed"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"dailygame-leaderboard/migrations"
+
 	_ "modernc.org/sqlite"
 )
-
-//go:embed migrations/*.sql
-var migrations embed.FS
 
 func openDatabase(dataDir string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Join(dataDir, "screenshots"), 0o700); err != nil {
@@ -42,7 +40,7 @@ func applyMigrations(db *sql.DB) error {
 	)`); err != nil {
 		return fmt.Errorf("create migration table: %w", err)
 	}
-	entries, err := migrations.ReadDir("migrations")
+	entries, err := migrations.Files.ReadDir(".")
 	if err != nil {
 		return fmt.Errorf("read migrations: %w", err)
 	}
@@ -54,7 +52,7 @@ func applyMigrations(db *sql.DB) error {
 		if applied {
 			continue
 		}
-		script, err := migrations.ReadFile("migrations/" + entry.Name())
+		script, err := migrations.Files.ReadFile(entry.Name())
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
 		}
@@ -74,7 +72,7 @@ func applyMigrations(db *sql.DB) error {
 		}
 	}
 	for _, entry := range entries {
-		script, err := migrations.ReadFile("migrations/" + entry.Name())
+		script, err := migrations.Files.ReadFile(entry.Name())
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
 		}

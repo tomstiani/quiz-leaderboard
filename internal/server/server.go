@@ -1,8 +1,7 @@
-package main
+package server
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -11,13 +10,7 @@ import (
 	"time"
 )
 
-func main() {
-	if err := run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatal(err)
-	}
-}
-
-func run() error {
+func Run() error {
 	cfg, err := loadConfig(os.Getenv("CONFIG_FILE"))
 	if err != nil {
 		return err

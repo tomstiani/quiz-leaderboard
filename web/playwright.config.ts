@@ -12,7 +12,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "cd .. && node -e \"require('fs').rmSync('.e2e-data',{recursive:true,force:true})\" && CONFIG_FILE=config.e2e.json go run .",
+      command: "cd .. && node -e \"require('fs').rmSync('.e2e-data',{recursive:true,force:true})\" && CONFIG_FILE=config.e2e.json go run ./cmd/server",
       url: 'http://127.0.0.1:18080/api/health',
       reuseExistingServer: false,
       timeout: 120_000,

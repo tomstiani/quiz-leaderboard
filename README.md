@@ -56,7 +56,7 @@ A private daily leaderboard for a small quiz group. Players submit result screen
 5. Start the Go server from the repository root:
 
    ```sh
-   go run .
+   go run ./cmd/server
    ```
 
 6. Start Vite in another terminal:
@@ -186,7 +186,7 @@ See the [deployment runbook](docs/deployment.md) for update, backup, restore, ro
 
 - **`validate config` on startup:** Replace all placeholder secrets and check token lengths and uniqueness.
 - **Login works locally but the session does not persist:** Set `secureCookies` to `false` for local HTTP development.
-- **Compose rejects local development configuration:** Compose intentionally requires secure cookies. Use `go run .` and Vite for local HTTP.
+- **Compose rejects local development configuration:** Compose intentionally requires secure cookies. Use `go run ./cmd/server` and Vite for local HTTP.
 - **`permission denied` under `data/`:** Set `APP_UID` and `APP_GID` in `.env` to the owner of the host data directory.
 - **Screenshot analysis fails:** Check `vision.url`, `vision.model`, `vision.apiKey`, provider access, and model availability.
 - **Browser notifications do not appear:** Use HTTPS, configure all Web Push fields, and allow notifications in the browser.
