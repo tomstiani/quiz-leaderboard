@@ -8,14 +8,15 @@ import { App } from './App'
 const player = { role: 'player', playerId: 'alice', name: 'Alice' }
 const dashboard = {
   date: '2026-09-10',
+  week: ['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13'],
   viewer: player,
   games: [
     { id: 'geopolitix', name: 'Geopolitix', url: 'https://geopolitix.live/', maxScore: 900 },
     { id: 'krillion', name: 'Krillion', url: 'https://krillion.io/', maxScore: 700 },
   ],
   players: [
-    { id: 'alice', name: 'Alice', rank: 1, completed: 0, combinedScore: 0, scores: [] },
-    { id: 'bob', name: 'Bob', rank: 1, completed: 0, combinedScore: 0, scores: [] },
+    { id: 'alice', name: 'Alice', rank: 1, completed: 0, combinedScore: 0, scores: [], dailyTotals: { '2026-09-09': 42 } },
+    { id: 'bob', name: 'Bob', rank: 1, completed: 0, combinedScore: 0, scores: [], dailyTotals: {} },
   ],
 }
 
@@ -46,9 +47,11 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: 'Daily leaderboard' })).toBeTruthy()
     expect(screen.getAllByRole('link', { name: 'Play game →' })[0].getAttribute('href')).toBe('https://geopolitix.live/')
-    expect(screen.getByText('Alice')).toBeTruthy()
-    expect(screen.getByText('Bob')).toBeTruthy()
+    expect(screen.getAllByText('Alice')).toHaveLength(2)
+    expect(screen.getAllByText('Bob')).toHaveLength(2)
     expect(screen.getAllByText('0/2')).toHaveLength(2)
+    expect(screen.getByRole('heading', { name: 'Week overview' })).toBeTruthy()
+    expect(screen.getByText('42')).toBeTruthy()
   })
 
   it('uploads, reviews, edits, and confirms a screenshot', async () => {

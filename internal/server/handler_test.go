@@ -93,7 +93,7 @@ func TestPlayerAuthenticationAndDashboard(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&dashboard); err != nil {
 		t.Fatal(err)
 	}
-	if dashboard.Date != "2026-03-29" || len(dashboard.Games) != 2 || len(dashboard.Players) != 2 {
+	if dashboard.Date != "2026-03-29" || len(dashboard.Week) != 7 || dashboard.Week[0] != "2026-03-23" || dashboard.Week[6] != "2026-03-29" || len(dashboard.Games) != 2 || len(dashboard.Players) != 2 {
 		t.Fatalf("unexpected dashboard: %+v", dashboard)
 	}
 	if dashboard.Games[0].URL != "https://geopolitix.live/" || dashboard.Players[0].Name != "Alice" || dashboard.Players[0].Rank != 1 || dashboard.Players[1].Rank != 1 {

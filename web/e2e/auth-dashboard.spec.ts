@@ -50,7 +50,7 @@ test('mobile leaderboard keeps rank, player, and total visible without scrolling
 
   await expect(page.getByRole('columnheader', { name: 'Total' })).toBeVisible()
   await expect(page.getByRole('columnheader', { name: 'Completed' })).toBeHidden()
-  const table = page.locator('.table-wrap')
+  const table = page.locator('.table-wrap').first()
   expect(await table.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(await table.evaluate((element) => element.clientWidth))
 })
 

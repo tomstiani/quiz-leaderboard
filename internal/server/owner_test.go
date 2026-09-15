@@ -83,7 +83,7 @@ func TestOwnerListsAndCorrectsTodaysSubmission(t *testing.T) {
 	dashboard := request(t, handler, http.MethodGet, "/api/dashboard", nil, player)
 	var result dashboardResponse
 	json.NewDecoder(dashboard.Body).Decode(&result)
-	if result.Players[0].CombinedScore != 100 || result.Players[0].Scores[0].RawScore != 900 {
+	if result.Players[0].CombinedScore != 100 || result.Players[0].Scores[0].RawScore != 900 || result.Players[0].DailyTotals["2026-09-10"] != 100 || result.Players[0].DailyTotals["2026-09-09"] != normalizeScore(300, 900) {
 		t.Fatalf("corrected dashboard score: %+v", result.Players[0])
 	}
 	if screenshot := screenshotRequest(handler, player, "today"); screenshot.Code != http.StatusOK {

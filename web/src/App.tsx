@@ -16,6 +16,7 @@ type Score = {
 
 type Dashboard = {
   date: string
+  week: string[]
   viewer: Viewer
   games: Game[]
   players: Array<{
@@ -25,6 +26,7 @@ type Dashboard = {
     completed: number
     combinedScore: number
     scores: Score[]
+    dailyTotals: Record<string, number>
   }>
 }
 
@@ -151,6 +153,28 @@ export function App() {
               </table>
             </div>
           </section>
+
+          <section aria-labelledby="week-heading">
+            <h2 id="week-heading">Week overview</h2>
+            <div {...stylex.props(styles.tableWrap)}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    {dashboard.week.map((date) => <th key={date} aria-current={date === dashboard.date ? 'date' : undefined}>{formatDay(date)}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboard.players.map((player) => (
+                    <tr key={player.id}>
+                      <th>{player.name}</th>
+                      {dashboard.week.map((date) => <td key={date}>{player.dailyTotals[date] === undefined ? '—' : formatScore(player.dailyTotals[date])}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </>
       )}
     </main>
@@ -159,4 +183,8 @@ export function App() {
 
 function formatScore(score: number) {
   return score.toLocaleString(undefined, { maximumFractionDigits: 1 })
+}
+
+function formatDay(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
 }

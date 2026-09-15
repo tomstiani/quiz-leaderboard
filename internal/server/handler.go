@@ -13,6 +13,7 @@ import (
 
 type dashboardResponse struct {
 	Date    string            `json:"date"`
+	Week    []string          `json:"week"`
 	Viewer  principal         `json:"viewer"`
 	Games   []dashboardGame   `json:"games"`
 	Players []dashboardPlayer `json:"players"`
@@ -33,12 +34,13 @@ type dashboardScore struct {
 }
 
 type dashboardPlayer struct {
-	ID            string           `json:"id"`
-	Name          string           `json:"name"`
-	Rank          int              `json:"rank"`
-	Completed     int              `json:"completed"`
-	CombinedScore float64          `json:"combinedScore"`
-	Scores        []dashboardScore `json:"scores"`
+	ID            string             `json:"id"`
+	Name          string             `json:"name"`
+	Rank          int                `json:"rank"`
+	Completed     int                `json:"completed"`
+	CombinedScore float64            `json:"combinedScore"`
+	Scores        []dashboardScore   `json:"scores"`
+	DailyTotals   map[string]float64 `json:"dailyTotals"`
 }
 
 func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...*eventBroker) (http.Handler, error) {
@@ -98,31 +100,40 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 		writeJSON(w, http.StatusOK, user)
 	}))
 	mux.HandleFunc("GET /api/dashboard", authenticated(cfg, db, func(w http.ResponseWriter, _ *http.Request, user principal) {
-		response := dashboardResponse{Date: day(), Viewer: user}
+		today := now().In(oslo)
+		weekStart := today.AddDate(0, 0, -(int(today.Weekday())+6)%7)
+		response := dashboardResponse{Date: today.Format(time.DateOnly), Viewer: user}
+		for offset := 0; offset < 7; offset++ {
+			response.Week = append(response.Week, weekStart.AddDate(0, 0, offset).Format(time.DateOnly))
+		}
 		for _, game := range cfg.Games {
 			response.Games = append(response.Games, dashboardGame{ID: game.ID, Name: game.Name, URL: game.URL, MaxScore: game.MaxScore})
 		}
 		playerIndexes := map[string]int{}
 		for _, player := range cfg.Players {
 			playerIndexes[player.ID] = len(response.Players)
-			response.Players = append(response.Players, dashboardPlayer{ID: player.ID, Name: player.Name, Scores: []dashboardScore{}})
+			response.Players = append(response.Players, dashboardPlayer{ID: player.ID, Name: player.Name, Scores: []dashboardScore{}, DailyTotals: map[string]float64{}})
 		}
-		rows, err := db.Query(`SELECT id, player_id, game_id, raw_score, normalized_score FROM submissions
-			WHERE game_day = ? AND status = 'confirmed'`, day())
+		rows, err := db.Query(`SELECT id, player_id, game_id, game_day, raw_score, normalized_score FROM submissions
+			WHERE game_day BETWEEN ? AND ? AND status = 'confirmed'`, response.Week[0], response.Week[6])
 		if err != nil {
 			http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var id, playerID, gameID string
+			var id, playerID, gameID, gameDay string
 			var rawScore int
 			var normalizedScore sql.NullFloat64
-			if err := rows.Scan(&id, &playerID, &gameID, &rawScore, &normalizedScore); err != nil {
+			if err := rows.Scan(&id, &playerID, &gameID, &gameDay, &rawScore, &normalizedScore); err != nil {
 				http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
 				return
 			}
 			if index, ok := playerIndexes[playerID]; ok && normalizedScore.Valid {
+				response.Players[index].DailyTotals[gameDay] += normalizedScore.Float64
+				if gameDay != response.Date {
+					continue
+				}
 				response.Players[index].Scores = append(response.Players[index].Scores, dashboardScore{GameID: gameID, RawScore: rawScore, NormalizedScore: normalizedScore.Float64, ScreenshotURL: "/api/screenshots/" + id})
 				response.Players[index].Completed++
 				response.Players[index].CombinedScore += normalizedScore.Float64
