@@ -109,6 +109,41 @@ func TestPlayerAuthenticationAndDashboard(t *testing.T) {
 	}
 }
 
+func TestPastDashboard(t *testing.T) {
+	now := time.Date(2026, 3, 28, 23, 30, 0, 0, time.UTC)
+	db, err := openDatabase(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`INSERT INTO submissions (id, player_id, game_id, game_day, status, filename, media_type, raw_score, normalized_score, confirmed_at)
+		VALUES ('past', 'alice', 'geopolitix', '2026-03-28', 'confirmed', 'past.png', 'image/png', 450, 50, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+	handler, err := newHandler(testConfig(), db, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie, _ := login(t, handler, "alice-token-1234567890")
+
+	response := request(t, handler, http.MethodGet, "/api/dashboard?date=2026-03-28", nil, cookie)
+	var dashboard dashboardResponse
+	if response.Code != http.StatusOK {
+		t.Fatalf("past dashboard returned %d: %s", response.Code, response.Body.String())
+	}
+	if err := json.NewDecoder(response.Body).Decode(&dashboard); err != nil {
+		t.Fatal(err)
+	}
+	if dashboard.Date != "2026-03-28" || dashboard.Today != "2026-03-29" || dashboard.Players[0].CombinedScore != 50 || dashboard.Players[0].Scores[0].ScreenshotURL != "/api/screenshots/past" {
+		t.Fatalf("unexpected past dashboard: %+v", dashboard)
+	}
+	for _, path := range []string{"/api/dashboard?date=invalid", "/api/dashboard?date=2026-03-30"} {
+		if response := request(t, handler, http.MethodGet, path, nil, cookie); response.Code != http.StatusBadRequest {
+			t.Fatalf("%s returned %d, want 400", path, response.Code)
+		}
+	}
+}
+
 func TestOwnerAndCurrentSession(t *testing.T) {
 	cfg := testConfig()
 	cfg.SecureCookies = true

@@ -13,6 +13,7 @@ import (
 
 type dashboardResponse struct {
 	Date    string            `json:"date"`
+	Today   string            `json:"today"`
 	Week    []string          `json:"week"`
 	Month   []string          `json:"month"`
 	Viewer  principal         `json:"viewer"`
@@ -100,15 +101,24 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 	mux.HandleFunc("GET /api/session", authenticated(cfg, db, func(w http.ResponseWriter, _ *http.Request, user principal) {
 		writeJSON(w, http.StatusOK, user)
 	}))
-	mux.HandleFunc("GET /api/dashboard", authenticated(cfg, db, func(w http.ResponseWriter, _ *http.Request, user principal) {
+	mux.HandleFunc("GET /api/dashboard", authenticated(cfg, db, func(w http.ResponseWriter, r *http.Request, user principal) {
 		today := now().In(oslo)
-		weekStart := today.AddDate(0, 0, -(int(today.Weekday())+6)%7)
-		monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, oslo)
-		response := dashboardResponse{Date: today.Format(time.DateOnly), Viewer: user}
+		selected := today
+		if value := r.URL.Query().Get("date"); value != "" {
+			parsed, err := time.ParseInLocation(time.DateOnly, value, oslo)
+			if err != nil || value > today.Format(time.DateOnly) {
+				http.Error(w, "invalid date", http.StatusBadRequest)
+				return
+			}
+			selected = parsed
+		}
+		weekStart := selected.AddDate(0, 0, -(int(selected.Weekday())+6)%7)
+		monthStart := time.Date(selected.Year(), selected.Month(), 1, 0, 0, 0, 0, oslo)
+		response := dashboardResponse{Date: selected.Format(time.DateOnly), Today: today.Format(time.DateOnly), Viewer: user}
 		for offset := 0; offset < 7; offset++ {
 			response.Week = append(response.Week, weekStart.AddDate(0, 0, offset).Format(time.DateOnly))
 		}
-		for date := monthStart; date.Month() == today.Month(); date = date.AddDate(0, 0, 1) {
+		for date := monthStart; date.Month() == selected.Month(); date = date.AddDate(0, 0, 1) {
 			response.Month = append(response.Month, date.Format(time.DateOnly))
 		}
 		for _, game := range cfg.Games {

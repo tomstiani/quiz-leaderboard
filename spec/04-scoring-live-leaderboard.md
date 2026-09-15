@@ -16,6 +16,7 @@ Rank players by an equally weighted combined daily score and update open dashboa
 - [x] **SCORE-004:** Calculate the combined score from 0 to 200.
 - [x] **SCORE-005:** Assign the same rank to equal combined scores without a time tie-breaker.
 - [x] **DASH-002:** Display rank, combined score, completion count, raw scores, normalized scores, and screenshots.
+- [x] **DASH-003:** Let players select and view a read-only past daily leaderboard.
 - [x] **LIVE-001:** Add an authenticated server-sent events endpoint.
 - [x] **LIVE-002:** Publish a leaderboard-change event after confirmation. Milestone 5 owner actions must publish through the same broker.
 - [x] **LIVE-003:** Re-fetch dashboard data after an event and use native EventSource reconnection after interruption.
@@ -43,4 +44,4 @@ None.
 ## Deferred
 
 - No WebSockets; server-sent events cover the required one-way updates.
-- No historical, weekly, or streak calculations.
+- No streak calculations or historical summaries beyond daily, weekly, and monthly totals.

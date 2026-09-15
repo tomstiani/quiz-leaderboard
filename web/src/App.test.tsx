@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -8,6 +8,7 @@ import { App } from './App'
 const player = { role: 'player', playerId: 'alice', name: 'Alice' }
 const dashboard = {
   date: '2026-09-10',
+  today: '2026-09-10',
   week: ['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13'],
   month: Array.from({ length: 30 }, (_, index) => `2026-09-${String(index + 1).padStart(2, '0')}`),
   viewer: player,
@@ -36,7 +37,15 @@ describe('App', () => {
         expect(JSON.parse(init?.body as string)).toEqual({ token: 'friend-token' })
         return Response.json(player)
       }
-      if (path === '/api/dashboard') return Response.json(dashboard)
+      if (path === '/api/dashboard' || path === '/api/dashboard?date=2026-09-10') return Response.json(dashboard)
+      if (path === '/api/dashboard?date=2026-09-09') return Response.json({
+        ...dashboard,
+        date: '2026-09-09',
+        players: [
+          { ...dashboard.players[0], rank: 1, completed: 1, combinedScore: 50, scores: [{ gameId: 'geopolitix', rawScore: 450, normalizedScore: 50, screenshotUrl: '/api/screenshots/past' }] },
+          { ...dashboard.players[1], rank: 2 },
+        ],
+      })
       throw new Error(`unexpected request: ${path}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -58,10 +67,20 @@ describe('App', () => {
     expect(screen.getAllByText('42')).toHaveLength(2)
 
     await user.click(screen.getByRole('button', { name: 'Month' }))
-    expect(screen.getByRole('columnheader', { name: 'Week total' })).toBeTruthy()
+    const monthTable = screen.getByRole('table', { name: 'Month scores' })
+    expect(monthTable.querySelectorAll('thead th')).toHaveLength(8)
+    expect(screen.getByRole('columnheader', { name: 'Week 1' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: 'Week 5' })).toBeTruthy()
     expect(screen.getByRole('columnheader', { name: 'Month total' })).toBeTruthy()
+    expect(screen.getByText('8')).toBeTruthy()
     expect(screen.getByText('42')).toBeTruthy()
     expect(screen.getByText('50')).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Leaderboard date'), { target: { value: '2026-09-09' } })
+    expect((await screen.findByRole('link', { name: '450 (50)' })).getAttribute('href')).toBe('/api/screenshots/past')
+    expect(screen.queryByRole('heading', { name: 'Today’s games' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Today' }))
+    expect(await screen.findByRole('heading', { name: 'Today’s games' })).toBeTruthy()
   })
 
   it('uploads, reviews, edits, and confirms a screenshot', async () => {
@@ -255,7 +274,7 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    expect((await screen.findByRole('alert')).textContent).toBe('Could not load today’s leaderboard.')
+    expect((await screen.findByRole('alert')).textContent).toBe('Could not load leaderboard.')
     await user.click(screen.getByRole('button', { name: 'Log out' }))
     expect((await screen.findByRole('alert')).textContent).toBe('Could not log out. Try again.')
     expect(screen.getByRole('heading', { name: 'Daily leaderboard' })).toBeTruthy()

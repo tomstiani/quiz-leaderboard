@@ -16,6 +16,7 @@ type Score = {
 
 type Dashboard = {
   date: string
+  today: string
   week: string[]
   month: string[]
   viewer: Viewer
@@ -35,6 +36,7 @@ export function App() {
   const [viewer, setViewer] = useState<Viewer | null | undefined>(undefined)
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day')
+  const [selectedDate, setSelectedDate] = useState('')
   const [refresh, setRefresh] = useState(0)
   const [error, setError] = useState('')
 
@@ -46,15 +48,16 @@ export function App() {
 
   useEffect(() => {
     if (!viewer) return
-    fetch('/api/dashboard')
+    const query = selectedDate ? `?date=${encodeURIComponent(selectedDate)}` : ''
+    fetch(`/api/dashboard${query}`)
       .then(async (response) => {
         if (response.ok) {
           setDashboard(await response.json())
           setError('')
-        } else setError('Could not load today’s leaderboard.')
+        } else setError('Could not load leaderboard.')
       })
-      .catch(() => setError('Could not load today’s leaderboard.'))
-  }, [viewer, refresh])
+      .catch(() => setError('Could not load leaderboard.'))
+  }, [viewer, refresh, selectedDate])
 
   useEffect(() => {
     if (!viewer || typeof EventSource === 'undefined') return
@@ -76,6 +79,8 @@ export function App() {
       const response = await fetch('/api/logout', { method: 'POST' })
       if (!response.ok) throw new Error()
       setDashboard(null)
+      setSelectedDate('')
+      setPeriod('day')
       setViewer(null)
     } catch {
       setError('Could not log out. Try again.')
@@ -86,6 +91,7 @@ export function App() {
   const periodPlayers = dashboard && period !== 'day'
     ? rankPeriodPlayers(dashboard.players, dashboard[period])
     : []
+  const monthWeeks = dashboard ? weeksInMonth(dashboard.month) : []
 
   return (
     <main {...stylex.props(styles.main, styles.dashboard)}>
@@ -104,6 +110,7 @@ export function App() {
       {error && <p role="alert" {...stylex.props(styles.error)}>{error}</p>}
       {!dashboard ? <p>Loading leaderboard…</p> : (
         <>
+          {dashboard.date === dashboard.today && <>
           <section aria-labelledby="games-heading">
             <h2 id="games-heading">Today’s games</h2>
             <div {...stylex.props(styles.games)}>
@@ -127,19 +134,34 @@ export function App() {
           </section>
 
           {viewer.role === 'owner' && <OwnerPanel refresh={refresh} onChanged={() => setRefresh((value) => value + 1)} />}
+          </>}
 
           <section aria-labelledby="leaderboard-heading">
             <div {...stylex.props(styles.scoreHeading)}>
               <h2 id="leaderboard-heading">Scores</h2>
-              <div aria-label="Score period" {...stylex.props(styles.periods)}>
-                {(['day', 'week', 'month'] as const).map((value) => (
-                  <button
-                    key={value}
-                    aria-pressed={period === value}
-                    {...stylex.props(styles.periodButton, period === value && styles.periodButtonActive)}
-                    onClick={() => setPeriod(value)}
-                  >{value[0].toUpperCase() + value.slice(1)}</button>
-                ))}
+              <div {...stylex.props(styles.scoreControls)}>
+                <input
+                  aria-label="Leaderboard date"
+                  type="date"
+                  max={dashboard.today}
+                  value={selectedDate || dashboard.date}
+                  {...stylex.props(styles.dateInput)}
+                  onChange={(event) => {
+                    setSelectedDate(event.target.value)
+                    setPeriod('day')
+                  }}
+                />
+                {dashboard.date !== dashboard.today && <button {...stylex.props(styles.periodButton)} onClick={() => setSelectedDate(dashboard.today)}>Today</button>}
+                <div aria-label="Score period" {...stylex.props(styles.periods)}>
+                  {(['day', 'week', 'month'] as const).map((value) => (
+                    <button
+                      key={value}
+                      aria-pressed={period === value}
+                      {...stylex.props(styles.periodButton, period === value && styles.periodButtonActive)}
+                      onClick={() => setPeriod(value)}
+                    >{value[0].toUpperCase() + value.slice(1)}</button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -197,13 +219,20 @@ export function App() {
             ) : (
               <div {...stylex.props(styles.tableWrap)}>
                 <table aria-label="Month scores">
-                  <thead><tr><th>Rank</th><th>Player</th><th>Week total</th><th>Month total</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Player</th>
+                      {monthWeeks.map((_, index) => <th key={index}>Week {index + 1}</th>)}
+                      <th>Month total</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {periodPlayers.map((player) => (
                       <tr key={player.id}>
                         <td>#{player.rank}</td>
                         <th>{player.name}</th>
-                        <td>{formatScore(sumScores(player, dashboard.week))}</td>
+                        {monthWeeks.map((week, index) => <td key={index}>{formatScore(sumScores(player, week))}</td>)}
                         <td>{formatScore(player.total)}</td>
                       </tr>
                     ))}
@@ -228,6 +257,15 @@ function formatDay(date: string) {
 
 function sumScores(player: Dashboard['players'][number], dates: string[]) {
   return dates.reduce((sum, date) => sum + (player.dailyTotals[date] ?? 0), 0)
+}
+
+function weeksInMonth(dates: string[]) {
+  const weeks: string[][] = []
+  for (const date of dates) {
+    if (!weeks.length || new Date(`${date}T00:00:00`).getDay() === 1) weeks.push([])
+    weeks[weeks.length - 1].push(date)
+  }
+  return weeks
 }
 
 function rankPeriodPlayers(players: Dashboard['players'], dates: string[]) {

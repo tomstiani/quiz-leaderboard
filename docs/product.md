@@ -25,7 +25,7 @@ The MVP supports:
 - Screenshot validation and score extraction with a low-cost vision model
 - Player review and confirmation before final submission
 - A combined daily leaderboard with real-time updates
-- Visible screenshots, raw scores, and normalized scores
+- Past-day leaderboards with visible screenshots, raw scores, and normalized scores
 - One ntfy and browser push notification when a player completes all games
 - Owner correction of today's invalid submissions
 
@@ -40,8 +40,7 @@ The MVP does not include:
 - Multiple teams
 - OAuth
 - Streaks
-- Weekly or historical statistics
-- A player-facing history view
+- Historical analytics beyond daily, weekly, and monthly totals
 - Advanced anti-cheat controls
 - Player edits after final submission
 - Automatic discovery of games
@@ -56,6 +55,7 @@ Each player receives a personal login token. A successful login creates a secure
 A player can:
 
 - View today's games and leaderboard
+- View past daily leaderboards
 - View every player's confirmed scores and screenshots
 - Upload one screenshot for each game
 - Review and edit an extracted score before confirmation
@@ -86,7 +86,7 @@ For each player, show:
 
 Confirmed results become available immediately. An open dashboard receives updates in real time. The planned transport is server-sent events because updates flow only from the server to the browser.
 
-Past submissions and screenshots remain stored but are not exposed through the MVP interface.
+Players can select a past Oslo calendar date to view that day's detailed leaderboard and screenshots. Past days are read-only.
 
 ## Games
 
