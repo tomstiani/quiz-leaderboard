@@ -53,11 +53,14 @@ describe('App', () => {
     expect(screen.getAllByText('0/2')).toHaveLength(2)
 
     await user.click(screen.getByRole('button', { name: 'Week' }))
-    expect(screen.getByRole('table', { name: 'Week scores' })).toBeTruthy()
-    expect(screen.getByText('42')).toBeTruthy()
+    const weekTable = screen.getByRole('table', { name: 'Week scores' })
+    expect(weekTable.querySelectorAll('thead th')).toHaveLength(10)
+    expect(screen.getAllByText('42')).toHaveLength(2)
 
     await user.click(screen.getByRole('button', { name: 'Month' }))
-    expect(screen.getByRole('table', { name: 'Month scores' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: 'Week total' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: 'Month total' })).toBeTruthy()
+    expect(screen.getByText('42')).toBeTruthy()
     expect(screen.getByText('50')).toBeTruthy()
   })
 

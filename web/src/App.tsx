@@ -171,13 +171,41 @@ export function App() {
                   </tbody>
                 </table>
               </div>
-            ) : (
+            ) : period === 'week' ? (
               <div {...stylex.props(styles.tableWrap)}>
-                <table aria-label={`${period[0].toUpperCase() + period.slice(1)} scores`}>
-                  <thead><tr><th>Rank</th><th>Player</th><th>Total</th></tr></thead>
+                <table aria-label="Week scores">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Player</th>
+                      {dashboard.week.map((date) => <th key={date} aria-current={date === dashboard.date ? 'date' : undefined}>{formatDay(date)}</th>)}
+                      <th>Total</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {periodPlayers.map((player) => (
-                      <tr key={player.id}><td>#{player.rank}</td><th>{player.name}</th><td>{formatScore(player.total)}</td></tr>
+                      <tr key={player.id}>
+                        <td>#{player.rank}</td>
+                        <th>{player.name}</th>
+                        {dashboard.week.map((date) => <td key={date}>{player.dailyTotals[date] === undefined ? '—' : formatScore(player.dailyTotals[date])}</td>)}
+                        <td>{formatScore(player.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div {...stylex.props(styles.tableWrap)}>
+                <table aria-label="Month scores">
+                  <thead><tr><th>Rank</th><th>Player</th><th>Week total</th><th>Month total</th></tr></thead>
+                  <tbody>
+                    {periodPlayers.map((player) => (
+                      <tr key={player.id}>
+                        <td>#{player.rank}</td>
+                        <th>{player.name}</th>
+                        <td>{formatScore(sumScores(player, dashboard.week))}</td>
+                        <td>{formatScore(player.total)}</td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -194,9 +222,17 @@ function formatScore(score: number) {
   return score.toLocaleString(undefined, { maximumFractionDigits: 1 })
 }
 
+function formatDay(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
+}
+
+function sumScores(player: Dashboard['players'][number], dates: string[]) {
+  return dates.reduce((sum, date) => sum + (player.dailyTotals[date] ?? 0), 0)
+}
+
 function rankPeriodPlayers(players: Dashboard['players'], dates: string[]) {
   const totals = players
-    .map((player) => ({ ...player, total: dates.reduce((sum, date) => sum + (player.dailyTotals[date] ?? 0), 0) }))
+    .map((player) => ({ ...player, total: sumScores(player, dates) }))
     .sort((a, b) => b.total - a.total)
   let rank = 1
   return totals.map((player, index) => {
