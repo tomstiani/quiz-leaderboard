@@ -145,6 +145,36 @@ func TestFailedBrowserPushIsNotRepeated(t *testing.T) {
 	}
 }
 
+func TestDailyReminderTargetsIncompletePlayerOnce(t *testing.T) {
+	privateKey, publicKey, keys := testPushKeys(t)
+	var paths []string
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+	cfg := testConfig()
+	cfg.WebPush = webPushConfig{PrivateKey: privateKey, PublicKey: publicKey, Subject: "mailto:test@example.com"}
+	db, _ := openDatabase(t.TempDir())
+	defer db.Close()
+	insertNotificationScore(t, db, "bob-reminder-one", "bob", "geopolitix", 50)
+	insertNotificationScore(t, db, "bob-reminder-two", "bob", "krillion", 50)
+	for _, subscriber := range []string{"alice", "bob"} {
+		if _, err := db.Exec("INSERT INTO push_subscriptions (endpoint, p256dh, auth, subscriber_id) VALUES (?, ?, ?, ?)", server.URL+"/"+subscriber, keys.P256dh, keys.Auth, subscriber); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for range 2 {
+		if err := sendDailyReminders(context.Background(), cfg, db, "2026-09-10", server.Client()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(paths) != 1 || paths[0] != "/alice" {
+		t.Fatalf("reminder paths=%v, want [/alice]", paths)
+	}
+}
+
 func TestBrowserPushDeliveryAndStaleCleanup(t *testing.T) {
 	privateKey, publicKey, keys := testPushKeys(t)
 	var calls int
@@ -173,7 +203,7 @@ func TestBrowserPushDeliveryAndStaleCleanup(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := sendBrowserPush(context.Background(), cfg, db, "Alice finished today's training with 100.0 points.", server.Client()); err != nil {
+	if err := sendBrowserPush(context.Background(), cfg, db, "Training complete", "Alice finished today's training with 100.0 points.", "", server.Client()); err != nil {
 		t.Fatal(err)
 	}
 	if calls != 2 {

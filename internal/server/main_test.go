@@ -68,10 +68,10 @@ func TestOpenDatabaseAppliesMigrations(t *testing.T) {
 	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 8 {
-		t.Fatalf("got %d migrations, want 8", count)
+	if count != 9 {
+		t.Fatalf("got %d migrations, want 9", count)
 	}
-	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE checksum IS NOT NULL").Scan(&count); err != nil || count != 8 {
-		t.Fatalf("got %d migration checksums, want 8: %v", count, err)
+	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE checksum IS NOT NULL").Scan(&count); err != nil || count != 9 {
+		t.Fatalf("got %d migration checksums, want 9: %v", count, err)
 	}
 }

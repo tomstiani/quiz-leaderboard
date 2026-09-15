@@ -53,7 +53,7 @@ func notifyCompletion(ctx context.Context, cfg config, db *sql.DB, playerID, day
 			deliveryErrors = append(deliveryErrors, err)
 		} else if claimed {
 			pushCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-			deliveryErr := sendBrowserPush(pushCtx, cfg, db, message, nil)
+			deliveryErr := sendBrowserPush(pushCtx, cfg, db, "Training complete", message, "", nil)
 			cancel()
 			if err := completeNotification(db, "push_sent_at", playerID, day); err != nil {
 				deliveryErrors = append(deliveryErrors, err)
@@ -136,11 +136,58 @@ func sendNtfy(ctx context.Context, cfg serviceConfig, message string) error {
 	return nil
 }
 
-func sendBrowserPush(ctx context.Context, cfg config, db *sql.DB, message string, client webpush.HTTPClient) error {
+func sendDailyReminders(ctx context.Context, cfg config, db *sql.DB, day string, client webpush.HTTPClient) error {
+	var deliveryErrors []error
+	for _, player := range cfg.Players {
+		_, complete, err := completionScore(db, cfg, player.ID, day)
+		if err != nil {
+			deliveryErrors = append(deliveryErrors, err)
+			continue
+		}
+		var subscribed bool
+		if err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM push_subscriptions WHERE subscriber_id = ?)", player.ID).Scan(&subscribed); err != nil {
+			deliveryErrors = append(deliveryErrors, err)
+			continue
+		}
+		if complete || !subscribed {
+			continue
+		}
+		if _, err := db.Exec("INSERT OR IGNORE INTO reminder_notifications (player_id, game_day) VALUES (?, ?)", player.ID, day); err != nil {
+			deliveryErrors = append(deliveryErrors, err)
+			continue
+		}
+		result, err := db.Exec("UPDATE reminder_notifications SET sent_at = 'pending' WHERE player_id = ? AND game_day = ? AND sent_at IS NULL", player.ID, day)
+		if err != nil {
+			deliveryErrors = append(deliveryErrors, err)
+			continue
+		}
+		claimed, _ := result.RowsAffected()
+		if claimed != 1 {
+			continue
+		}
+		message := fmt.Sprintf("%s, your daily games are waiting.", player.Name)
+		deliveryErr := sendBrowserPush(ctx, cfg, db, "Friendly reminder", message, player.ID, client)
+		if _, err := db.Exec("UPDATE reminder_notifications SET sent_at = CURRENT_TIMESTAMP WHERE player_id = ? AND game_day = ?", player.ID, day); err != nil {
+			deliveryErrors = append(deliveryErrors, err)
+		}
+		if deliveryErr != nil {
+			deliveryErrors = append(deliveryErrors, deliveryErr)
+		}
+	}
+	return errors.Join(deliveryErrors...)
+}
+
+func sendBrowserPush(ctx context.Context, cfg config, db *sql.DB, title, message, subscriberID string, client webpush.HTTPClient) error {
 	if client == nil {
 		client = publicHTTPClient()
 	}
-	rows, err := db.Query("SELECT endpoint, p256dh, auth, subscriber_id FROM push_subscriptions")
+	query := "SELECT endpoint, p256dh, auth, subscriber_id FROM push_subscriptions"
+	var args []any
+	if subscriberID != "" {
+		query += " WHERE subscriber_id = ?"
+		args = append(args, subscriberID)
+	}
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return err
 	}
@@ -164,7 +211,7 @@ func sendBrowserPush(ctx context.Context, cfg config, db *sql.DB, message string
 	for _, player := range cfg.Players {
 		valid[player.ID] = true
 	}
-	payload, _ := json.Marshal(map[string]string{"title": "Training complete", "body": message, "url": "/"})
+	payload, _ := json.Marshal(map[string]string{"title": title, "body": message, "url": "/"})
 	var deliveryErrors []error
 	for _, subscription := range subscriptions {
 		if !valid[subscription.subscriberID] {

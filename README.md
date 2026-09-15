@@ -104,7 +104,7 @@ Generate a VAPID key pair once:
 go run ./cmd/vapid
 ```
 
-Copy the generated keys into `webPush.publicKey` and `webPush.privateKey`, then set a subject such as `mailto:admin@example.com`. Do not regenerate the keys after users subscribe. Browser push requires HTTPS, except on localhost.
+Copy the generated keys into `webPush.publicKey` and `webPush.privateKey`, then set a subject such as `mailto:admin@example.com`. Do not regenerate the keys after users subscribe. Browser push requires HTTPS, except on localhost. Subscribed players with unfinished games receive one reminder at 18:00 Europe/Oslo.
 
 ### Enable ntfy
 

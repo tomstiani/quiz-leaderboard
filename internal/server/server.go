@@ -37,6 +37,11 @@ func Run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	remindersDone := make(chan struct{})
+	go func() {
+		defer close(remindersDone)
+		runReminderScheduler(ctx, cfg, db)
+	}()
 	shutdownDone := make(chan struct{})
 	go func() {
 		<-ctx.Done()
@@ -52,6 +57,7 @@ func Run() error {
 	err = server.ListenAndServe()
 	stop()
 	<-shutdownDone
+	<-remindersDone
 	return err
 }
 

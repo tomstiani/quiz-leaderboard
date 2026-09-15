@@ -6,7 +6,7 @@
 
 ## Goal
 
-Let the owner repair today's mistakes and notify the group once when a player completes both games.
+Let the owner repair today's mistakes, notify the group when a player completes both games, and remind subscribed players about unfinished games.
 
 ## Tasks
 
@@ -26,6 +26,7 @@ Let the owner repair today's mistakes and notify the group once when a player co
 - [x] **PUSH-003:** Deliver completion notifications while the dashboard is closed and remove expired subscriptions.
 - [x] **PUSH-004:** Remove the current browser subscription on explicit logout.
 - [x] **PUSH-005:** Deduplicate browser notifications per player and day and test encrypted delivery.
+- [x] **PUSH-006:** At 18:00 Europe/Oslo, remind each subscribed player with unfinished games once.
 
 ## Acceptance criteria
 
@@ -35,6 +36,7 @@ Let the owner repair today's mistakes and notify the group once when a player co
 - [x] Completing both games sends one message containing the player name and combined total.
 - [x] ntfy or Web Push failure does not lose or roll back a confirmed submission.
 - [x] An opted-in browser can display completion notifications after the dashboard is closed.
+- [x] An incomplete subscribed player receives one 18:00 reminder; completed and unsubscribed players do not.
 
 ## Blockers
 

@@ -162,6 +162,8 @@ Use an existing self-hosted ntfy instance and standards-based Web Push. Every pl
 
 When a player confirms their final unfinished game, publish a message containing the player's name and combined total. Send at most one completion notification through each channel per player and day, including after an owner reopens and the player reconfirms a submission.
 
+At 18:00 Europe/Oslo, send one friendly Web Push reminder to each subscribed player who has not completed all games. Do not notify completed or unsubscribed players, and do not repeat the reminder after a restart.
+
 The ntfy endpoint, topic, credentials, and VAPID keys belong in private deployment configuration. Explicit logout removes that browser's push subscription.
 
 ## Trust and privacy
@@ -210,6 +212,7 @@ The Go service should serve the built frontend so deployment needs one applicati
 - Both games have equal weight.
 - Equal totals share a rank.
 - Completion notifications are sent at most once through each channel per player and day.
+- Unfinished-game reminders are sent once at 18:00 Europe/Oslo to subscribed players only.
 - Past data is retained but hidden.
 
 ## Required inputs
