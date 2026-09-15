@@ -28,7 +28,8 @@ func ownerTestHandler(t *testing.T) (http.Handler, config, *eventBroker) {
 	}
 	_, err = db.Exec(`INSERT INTO submissions (id, player_id, game_id, game_day, status, filename, media_type, raw_score, normalized_score, confirmed_at)
 		VALUES ('today', 'alice', 'geopolitix', '2026-09-10', 'confirmed', 'today.png', 'image/png', 450, 50, CURRENT_TIMESTAMP),
-		       ('past', 'alice', 'geopolitix', '2026-09-09', 'confirmed', 'past.png', 'image/png', 300, 33.333, CURRENT_TIMESTAMP)`)
+		       ('past', 'alice', 'geopolitix', '2026-09-09', 'confirmed', 'past.png', 'image/png', 300, 33.333, CURRENT_TIMESTAMP),
+		       ('month', 'alice', 'geopolitix', '2026-09-01', 'confirmed', 'past.png', 'image/png', 225, 25, CURRENT_TIMESTAMP)`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +84,7 @@ func TestOwnerListsAndCorrectsTodaysSubmission(t *testing.T) {
 	dashboard := request(t, handler, http.MethodGet, "/api/dashboard", nil, player)
 	var result dashboardResponse
 	json.NewDecoder(dashboard.Body).Decode(&result)
-	if result.Players[0].CombinedScore != 100 || result.Players[0].Scores[0].RawScore != 900 || result.Players[0].DailyTotals["2026-09-10"] != 100 || result.Players[0].DailyTotals["2026-09-09"] != normalizeScore(300, 900) {
+	if result.Players[0].CombinedScore != 100 || result.Players[0].Scores[0].RawScore != 900 || result.Players[0].DailyTotals["2026-09-10"] != 100 || result.Players[0].DailyTotals["2026-09-09"] != normalizeScore(300, 900) || result.Players[0].DailyTotals["2026-09-01"] != 25 {
 		t.Fatalf("corrected dashboard score: %+v", result.Players[0])
 	}
 	if screenshot := screenshotRequest(handler, player, "today"); screenshot.Code != http.StatusOK {

@@ -14,6 +14,7 @@ import (
 type dashboardResponse struct {
 	Date    string            `json:"date"`
 	Week    []string          `json:"week"`
+	Month   []string          `json:"month"`
 	Viewer  principal         `json:"viewer"`
 	Games   []dashboardGame   `json:"games"`
 	Players []dashboardPlayer `json:"players"`
@@ -102,9 +103,13 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 	mux.HandleFunc("GET /api/dashboard", authenticated(cfg, db, func(w http.ResponseWriter, _ *http.Request, user principal) {
 		today := now().In(oslo)
 		weekStart := today.AddDate(0, 0, -(int(today.Weekday())+6)%7)
+		monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, oslo)
 		response := dashboardResponse{Date: today.Format(time.DateOnly), Viewer: user}
 		for offset := 0; offset < 7; offset++ {
 			response.Week = append(response.Week, weekStart.AddDate(0, 0, offset).Format(time.DateOnly))
+		}
+		for date := monthStart; date.Month() == today.Month(); date = date.AddDate(0, 0, 1) {
+			response.Month = append(response.Month, date.Format(time.DateOnly))
 		}
 		for _, game := range cfg.Games {
 			response.Games = append(response.Games, dashboardGame{ID: game.ID, Name: game.Name, URL: game.URL, MaxScore: game.MaxScore})
@@ -114,8 +119,15 @@ func newHandler(cfg config, db *sql.DB, now func() time.Time, providedBroker ...
 			playerIndexes[player.ID] = len(response.Players)
 			response.Players = append(response.Players, dashboardPlayer{ID: player.ID, Name: player.Name, Scores: []dashboardScore{}, DailyTotals: map[string]float64{}})
 		}
+		start, end := response.Month[0], response.Month[len(response.Month)-1]
+		if response.Week[0] < start {
+			start = response.Week[0]
+		}
+		if response.Week[6] > end {
+			end = response.Week[6]
+		}
 		rows, err := db.Query(`SELECT id, player_id, game_id, game_day, raw_score, normalized_score FROM submissions
-			WHERE game_day BETWEEN ? AND ? AND status = 'confirmed'`, response.Week[0], response.Week[6])
+			WHERE game_day BETWEEN ? AND ? AND status = 'confirmed'`, start, end)
 		if err != nil {
 			http.Error(w, "could not load leaderboard", http.StatusInternalServerError)
 			return

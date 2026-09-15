@@ -79,6 +79,16 @@ export const styles = stylex.create({
     letterSpacing: '0.025rem',
     whiteSpace: 'nowrap',
   },
+  scoreHeading: {
+    display: 'flex',
+    alignItems: 'end',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: '1rem',
+  },
+  periods: { display: 'flex', gap: '0.5rem', marginBottom: '2.25rem' },
+  periodButton: { minHeight: '2.5rem', padding: '0.5rem 1rem' },
+  periodButtonActive: { backgroundColor: 'var(--secondary)', borderColor: '#ffffff70' },
   tableWrap: {
     overflowX: 'auto',
     backgroundColor: '#001f1ebf',

@@ -17,6 +17,7 @@ type Score = {
 type Dashboard = {
   date: string
   week: string[]
+  month: string[]
   viewer: Viewer
   games: Game[]
   players: Array<{
@@ -33,6 +34,7 @@ type Dashboard = {
 export function App() {
   const [viewer, setViewer] = useState<Viewer | null | undefined>(undefined)
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
+  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day')
   const [refresh, setRefresh] = useState(0)
   const [error, setError] = useState('')
 
@@ -81,6 +83,9 @@ export function App() {
   }
 
   const currentPlayer = dashboard?.players.find((player) => player.id === viewer.playerId)
+  const periodPlayers = dashboard && period !== 'day'
+    ? rankPeriodPlayers(dashboard.players, dashboard[period])
+    : []
 
   return (
     <main {...stylex.props(styles.main, styles.dashboard)}>
@@ -124,56 +129,60 @@ export function App() {
           {viewer.role === 'owner' && <OwnerPanel refresh={refresh} onChanged={() => setRefresh((value) => value + 1)} />}
 
           <section aria-labelledby="leaderboard-heading">
-            <h2 id="leaderboard-heading">Scores</h2>
-            <div {...stylex.props(styles.tableWrap)}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Player</th>
-                    <th {...stylex.props(styles.scoreDetail)}>Completed</th>
-                    {dashboard.games.map((game) => <th {...stylex.props(styles.scoreDetail)} key={game.id}>{game.name}</th>)}
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboard.players.map((player) => (
-                    <tr key={player.id}>
-                      <td>#{player.rank}</td>
-                      <th>{player.name}</th>
-                      <td {...stylex.props(styles.scoreDetail)}>{player.completed}/{dashboard.games.length}</td>
-                      {dashboard.games.map((game) => {
-                        const score = player.scores.find((item) => item.gameId === game.id)
-                        return <td {...stylex.props(styles.scoreDetail)} key={game.id}>{score ? <a href={score.screenshotUrl} target="_blank" rel="noreferrer">{score.rawScore} <small>({formatScore(score.normalizedScore)})</small></a> : '—'}</td>
-                      })}
-                      <td>{formatScore(player.combinedScore)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div {...stylex.props(styles.scoreHeading)}>
+              <h2 id="leaderboard-heading">Scores</h2>
+              <div aria-label="Score period" {...stylex.props(styles.periods)}>
+                {(['day', 'week', 'month'] as const).map((value) => (
+                  <button
+                    key={value}
+                    aria-pressed={period === value}
+                    {...stylex.props(styles.periodButton, period === value && styles.periodButtonActive)}
+                    onClick={() => setPeriod(value)}
+                  >{value[0].toUpperCase() + value.slice(1)}</button>
+                ))}
+              </div>
             </div>
-          </section>
 
-          <section aria-labelledby="week-heading">
-            <h2 id="week-heading">Week overview</h2>
-            <div {...stylex.props(styles.tableWrap)}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    {dashboard.week.map((date) => <th key={date} aria-current={date === dashboard.date ? 'date' : undefined}>{formatDay(date)}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboard.players.map((player) => (
-                    <tr key={player.id}>
-                      <th>{player.name}</th>
-                      {dashboard.week.map((date) => <td key={date}>{player.dailyTotals[date] === undefined ? '—' : formatScore(player.dailyTotals[date])}</td>)}
+            {period === 'day' ? (
+              <div {...stylex.props(styles.tableWrap)}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Player</th>
+                      <th {...stylex.props(styles.scoreDetail)}>Completed</th>
+                      {dashboard.games.map((game) => <th {...stylex.props(styles.scoreDetail)} key={game.id}>{game.name}</th>)}
+                      <th>Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {dashboard.players.map((player) => (
+                      <tr key={player.id}>
+                        <td>#{player.rank}</td>
+                        <th>{player.name}</th>
+                        <td {...stylex.props(styles.scoreDetail)}>{player.completed}/{dashboard.games.length}</td>
+                        {dashboard.games.map((game) => {
+                          const score = player.scores.find((item) => item.gameId === game.id)
+                          return <td {...stylex.props(styles.scoreDetail)} key={game.id}>{score ? <a href={score.screenshotUrl} target="_blank" rel="noreferrer">{score.rawScore} <small>({formatScore(score.normalizedScore)})</small></a> : '—'}</td>
+                        })}
+                        <td>{formatScore(player.combinedScore)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div {...stylex.props(styles.tableWrap)}>
+                <table aria-label={`${period[0].toUpperCase() + period.slice(1)} scores`}>
+                  <thead><tr><th>Rank</th><th>Player</th><th>Total</th></tr></thead>
+                  <tbody>
+                    {periodPlayers.map((player) => (
+                      <tr key={player.id}><td>#{player.rank}</td><th>{player.name}</th><td>{formatScore(player.total)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </>
       )}
@@ -185,6 +194,13 @@ function formatScore(score: number) {
   return score.toLocaleString(undefined, { maximumFractionDigits: 1 })
 }
 
-function formatDay(date: string) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
+function rankPeriodPlayers(players: Dashboard['players'], dates: string[]) {
+  const totals = players
+    .map((player) => ({ ...player, total: dates.reduce((sum, date) => sum + (player.dailyTotals[date] ?? 0), 0) }))
+    .sort((a, b) => b.total - a.total)
+  let rank = 1
+  return totals.map((player, index) => {
+    if (index && player.total !== totals[index - 1].total) rank = index + 1
+    return { ...player, rank }
+  })
 }
