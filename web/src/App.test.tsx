@@ -199,7 +199,7 @@ describe('App', () => {
     let active = false
     const subscription = {
       endpoint: 'https://push.example/subscription',
-      toJSON: () => ({ endpoint: 'https://push.example/subscription', keys: { p256dh: 'key', auth: 'auth' } }),
+      toJSON: () => ({ endpoint: 'https://push.example/subscription', expirationTime: null, keys: { p256dh: 'key', auth: 'auth' } }),
       unsubscribe: vi.fn(async () => { active = false; return true }),
     }
     const registration = {
@@ -228,7 +228,8 @@ describe('App', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Enable notifications' }))
     await waitFor(() => expect(registration.pushManager.subscribe).toHaveBeenCalled())
-    expect(fetchMock.mock.calls.some(([path, init]) => path === '/api/push/subscriptions' && init?.method === 'POST')).toBe(true)
+    const subscribeRequest = fetchMock.mock.calls.find(([path, init]) => path === '/api/push/subscriptions' && init?.method === 'POST')
+    expect(JSON.parse(subscribeRequest?.[1]?.body as string)).toEqual({ endpoint: subscription.endpoint, keys: { p256dh: 'key', auth: 'auth' } })
     await user.click(screen.getByRole('button', { name: 'Disable notifications' }))
     await waitFor(() => expect(subscription.unsubscribe).toHaveBeenCalled())
     expect(fetchMock.mock.calls.some(([path, init]) => path === '/api/push/subscriptions' && init?.method === 'DELETE')).toBe(true)

@@ -38,7 +38,7 @@ export function BrowserNotifications() {
       const response = await fetch('/api/push/subscriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription),
+        body: JSON.stringify({ endpoint: subscription.endpoint, keys: subscription.toJSON().keys }),
       })
       if (!response.ok) throw new Error((await response.text()).trim() || `Subscription request failed (${response.status}).`)
       setSubscribed(true)
