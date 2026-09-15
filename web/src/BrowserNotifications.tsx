@@ -40,10 +40,11 @@ export function BrowserNotifications() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(subscription),
       })
-      if (!response.ok) throw new Error()
+      if (!response.ok) throw new Error((await response.text()).trim() || `Subscription request failed (${response.status}).`)
       setSubscribed(true)
-    } catch {
-      setError('Could not enable browser notifications.')
+    } catch (reason) {
+      console.error('Could not enable browser notifications', reason)
+      setError(`Could not enable browser notifications${reason instanceof Error && reason.message ? `: ${reason.message}` : '.'}`)
     }
   }
 
